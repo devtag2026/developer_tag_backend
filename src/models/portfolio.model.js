@@ -23,11 +23,14 @@ const portfolioSchema = new Schema(
             required: [true, "Project scope description is required"],
             trim: true,
         },
+        // Modified techStack: each element is an object with a 'tech' field.
         techStack: [
             {
-                type: String,
-                required: [true, "At least one technology is required"],
-                trim: true,
+                tech: {
+                    type: String,
+                    required: [true, "At least one technology is required"],
+                    trim: true,
+                },
             },
         ],
         previewImage: {
@@ -46,6 +49,11 @@ const portfolioSchema = new Schema(
         adminPanelImage: {
             type: String,
             trim: true,
+        },
+        user: {
+            type: Schema.Types.ObjectId,
+            ref: "User",
+            required: true,
         },
     },
     {

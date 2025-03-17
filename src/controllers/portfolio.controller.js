@@ -4,37 +4,45 @@ import { ApiError } from "../utils/apiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 
-// ----------- Adding Portfolio--------------
 
+
+// ----------- Adding Portfolio --------------
 export const addPortfolio = asyncHandler(async (req, res) => {
     const { slug, title, tagLine, projectScopeDescription, techStack } = req.body;
-    console.log(req.body)
+    console.log(req.body);
 
-    if (
-        !slug ||
-        !title ||
-        !tagLine ||
-        !projectScopeDescription ||
-        !techStack
-    ) {
+    // Ensure required fields are present.
+    if (!slug || !title || !tagLine || !projectScopeDescription || !techStack) {
         throw new ApiError(400, "Missing required fields");
     }
 
-    // Process techStack to ensure it's an array.
+    // Ensure the authenticated user exists.
+    if (!req.user || !req.user._id) {
+        throw new ApiError(401, "Unauthorized: User information not found");
+    }
+
+    // Process techStack to ensure it's an array of objects { tech: "..." }.
     let techStackArray = techStack;
     if (typeof techStack === "string") {
         try {
             techStackArray = JSON.parse(techStack);
             if (!Array.isArray(techStackArray)) {
-                techStackArray = [techStackArray];
+                techStackArray = techStack.split(",").filter(Boolean);
             }
         } catch (err) {
-            techStackArray = [techStack];
+            techStackArray = techStack.split(",").filter(Boolean);
         }
     }
+    // Map each element: if already an object with a tech property, use it; otherwise, wrap it.
+    techStackArray = techStackArray.map((tech) => {
+        if (typeof tech === "object" && tech !== null && tech.tech) {
+            return { tech: String(tech.tech).trim() };
+        } else {
+            return { tech: String(tech).trim() };
+        }
+    });
 
     // Process file upload for previewImage.
-    // If a file is provided, use it; otherwise, use the value from req.body.
     let previewImageUrl = req.body.previewImage;
     if (req.files?.previewImage?.[0]) {
         const previewUpload = await uploadOnCloudinary(req.files.previewImage[0].path);
@@ -60,7 +68,7 @@ export const addPortfolio = asyncHandler(async (req, res) => {
         adminPanelImageUrl = adminUpload?.url || adminPanelImageUrl;
     }
 
-    // Create the new portfolio entry; model validations will further enforce schema constraints.
+    // Create the new portfolio entry with the authenticated user's _id.
     const newPortfolio = new Portfolio({
         slug,
         title,
@@ -71,24 +79,30 @@ export const addPortfolio = asyncHandler(async (req, res) => {
         websiteDemo: websiteDemoUrl,
         mobileDemo: mobileDemoUrl,
         adminPanelImage: adminPanelImageUrl,
+        user: req.user._id, // Attach user reference.
     });
 
     const savedPortfolio = await newPortfolio.save();
     return res
         .status(201)
-        .json(new ApiResponse(201, savedPortfolio, "Portfolio added successfully"));
+        .json(new ApiError(201, savedPortfolio, "Portfolio added successfully"));
 });
 
 
-// ----------- Updating Portfolio--------------
 
+// ----------- Updating Portfolio --------------
 export const updatePortfolio = asyncHandler(async (req, res) => {
     const portfolio = await Portfolio.findById(req.params.id);
     if (!portfolio) {
         throw new ApiError(404, "Portfolio not found");
     }
 
-    // Update text fields from req.body
+    // Ensure that the authenticated user is the owner.
+    if (String(portfolio.user) !== String(req.user._id)) {
+        throw new ApiError(403, "Forbidden: You do not have permission to update this portfolio");
+    }
+
+    // Update text fields from req.body.
     const { slug, title, tagLine, projectScopeDescription, techStack } = req.body;
     if (slug) portfolio.slug = slug;
     if (title) portfolio.title = title;
@@ -101,12 +115,21 @@ export const updatePortfolio = asyncHandler(async (req, res) => {
             try {
                 techStackArray = JSON.parse(techStack);
                 if (!Array.isArray(techStackArray)) {
-                    techStackArray = [techStackArray];
+                    techStackArray = techStack.split(",").filter(Boolean);
                 }
             } catch (err) {
-                techStackArray = [techStack];
+                techStackArray = techStack.split(",").filter(Boolean);
             }
         }
+        // For each element, if it is already an object with a `tech` property, simply trim it;
+        // otherwise, wrap it into an object.
+        techStackArray = techStackArray.map((tech) => {
+            if (typeof tech === "object" && tech !== null && tech.tech) {
+                return { tech: String(tech.tech).trim() };
+            } else {
+                return { tech: String(tech).trim() };
+            }
+        });
         portfolio.techStack = techStackArray;
     }
 
@@ -129,22 +152,49 @@ export const updatePortfolio = asyncHandler(async (req, res) => {
     }
 
     const updatedPortfolio = await portfolio.save();
-    return res.status(200).json(new ApiResponse(200, updatedPortfolio, "Portfolio updated successfully"));
+    return res
+        .status(200)
+        .json(new ApiError(200, updatedPortfolio, "Portfolio updated successfully"));
 });
 
-// ----------- Get Portfolio--------------
+
+
+
+// ----------- Get Portfolio --------------
 export const getPortfolios = asyncHandler(async (req, res) => {
-    const portfolios = await Portfolio.find();
+    const portfolios = await Portfolio.find().populate("user", "fullName email");
     return res.status(200).json(new ApiResponse(200, portfolios, "Portfolios fetched successfully"));
 });
 
-// ----------- Delete Portfolio--------------
-
+// ----------- Delete Portfolio --------------
 export const deletePortfolio = asyncHandler(async (req, res) => {
-    const portfolio = await Portfolio.findById(req.params.id);
-    if (!portfolio) {
+    // Use the static method on the Portfolio model
+    const deletedPortfolio = await Portfolio.findByIdAndDelete(req.params.id);
+
+    if (!deletedPortfolio) {
         throw new ApiError(404, "Portfolio not found");
     }
-    await portfolio.remove();
-    return res.status(200).json(new ApiResponse(200, null, "Portfolio deleted successfully"));
+
+    return res.status(200).json({
+        status: 200,
+        data: {},
+        message: "Portfolio deleted successfully"
+    });
+});
+
+export const getLatestPortfolio = asyncHandler(async (req, res) => {
+    const latestPortfolio = await Portfolio.findOne().sort({ createdAt: -1 }).populate("user", "fullName email");
+
+    if (!latestPortfolio) {
+        throw new ApiError(404, "No portfolio found");
+    }
+
+    return res.status(200).json(new ApiResponse(200, latestPortfolio, "Latest portfolio fetched successfully"));
+});
+
+
+export const getTotalPortfolios = asyncHandler(async (req, res) => {
+    const totalPortfolios = await Portfolio.countDocuments();
+
+    return res.status(200).json(new ApiResponse(200, { total: totalPortfolios }, "Total number of portfolios fetched successfully"));
 });

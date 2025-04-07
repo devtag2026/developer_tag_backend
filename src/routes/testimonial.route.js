@@ -7,6 +7,7 @@ const router = Router();
 
 
 router.route("/").get(verifyJWT, getTestimonials);
+router.route("/all-testimonial").get(getTestimonials);
 router.route("/latest-testimonial").get(verifyJWT, getLatestTestimonial);
 router.route("/total-testimonial").get(verifyJWT, getTotalTestimonials);
 

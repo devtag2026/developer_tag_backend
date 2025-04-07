@@ -7,6 +7,7 @@ const router = Router();
 
 
 router.route("/").get(verifyJWT, getPortfolios);
+router.route("/all-portfolio").get(getPortfolios);
 router.route("/total-portfolio").get(verifyJWT, getTotalPortfolios);
 router.route("/latest-portfolio").get(verifyJWT, getLatestPortfolio);
 

@@ -6,6 +6,14 @@ dotenv.config({
     path: "./env",
 });
 
+// Process-level guards
+process.on("uncaughtException", (err) => {
+    console.error("Uncaught Exception:", err);
+});
+
+process.on("unhandledRejection", (reason) => {
+    console.error("Unhandled Rejection:", reason);
+});
 
 connectDB()
     .then(() => {
@@ -17,7 +25,6 @@ connectDB()
 
         app.on("error", (err) => {
             console.error("Error occurred in app :", err.message)
-            process.exit(1)
         })
     })
     .catch((err) => {

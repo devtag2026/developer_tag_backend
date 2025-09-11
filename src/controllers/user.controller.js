@@ -45,23 +45,21 @@ const registerUser = asyncHandler(async (req, res) => {
         throw new ApiError(409, "User with this email and password already exists");
     }
 
-    let avatarLocalPath = req.files?.avatar[0]?.path
+    let avatarLocalPath = req.files?.avatar?.[0]?.path
 
-    if (!avatarLocalPath) {
-        throw new ApiError(400, "Avatar is required")
-    }
-
-    const avatar = await uploadOnCloudinary(avatarLocalPath)
-
-    if (!avatar) {
-        throw new ApiError(409, "Avatar is required")
+    let avatarUrl = undefined
+    if (avatarLocalPath) {
+        const avatar = await uploadOnCloudinary(avatarLocalPath)
+        if (avatar && avatar.url) {
+            avatarUrl = avatar.url
+        }
     }
 
     const user = await User.create({
         email,
         fullName,
         password,
-        avatar: avatar?.url
+        avatar: avatarUrl
     })
 
     const createdUser = await User.findById(user._id).select(
@@ -99,7 +97,7 @@ const loginUser = asyncHandler(async (req, res) => {
     const isPasswordValid = await user.isPasswordCorrect(password)
 
     if (!isPasswordValid) {
-        throw new ApiError(400, "Password is incorrect")
+        throw new ApiError(400, "Invalid Credentials")
     }
 
     const { refreshToken, accessToken } = await generateRefreshandAccessTokens(user._id)
@@ -221,7 +219,7 @@ const passwordChange = asyncHandler(async (req, res) => {
     const isPasswordValid = await user.isPasswordCorrect(oldPassword)
 
     if (!isPasswordValid) {
-        throw new ApiError(400, "Password is incorrect")
+        throw new ApiError(400, "Invalid Credentials")
     }
 
     user.password = newPassword

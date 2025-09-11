@@ -4,7 +4,8 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon -r dotenv/config --experimental-json-modules src/index.js"
+    "dev": "nodemon -r dotenv/config --experimental-json-modules src/index.js",
+    "kill-port": "powershell -Command \"Stop-Process -Id (Get-NetTCPConnection -LocalPort 8000).OwningProcess -Force\""
   },
   "author": "",
   "license": "ISC",

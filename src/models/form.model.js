@@ -9,7 +9,6 @@ export const SERVICE_TYPES = [
     'Digital Marketing',
 ];
 
-
 export const FORM_TYPES = [
     'Request a Service',
     'Ask a Question',

@@ -24,7 +24,11 @@ const userSchema = new Schema(
         },
         avatar: {
             type: String,
-            required: true
+        },
+        role: {
+            type: String,
+            enum: ["user", "admin"],
+            default: "user"
         },
         refreshToken: {
             type: String
@@ -62,7 +66,8 @@ userSchema.methods.generateAccessTokens = async function () {
             _id: this._id,
             email: this.email,
             userName: this.userName,
-            fullName: this.fullName
+            fullName: this.fullName,
+            role: this.role
         },
         process.env.ACCESS_TOKEN_SECRET,
         {

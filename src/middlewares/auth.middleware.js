@@ -31,3 +31,13 @@ export const verifyJWT = asyncHandler(async (req, _, next) => {
         throw new ApiError(401, "Invalid Access Token")
     }
 })
+
+// Role-based authorization middleware
+export const authorizeRoles = (...allowedRoles) => {
+    return (req, res, next) => {
+        if (!req.user || !allowedRoles.includes(req.user.role)) {
+            return next(new ApiError(403, "Forbidden: insufficient permissions"));
+        }
+        next();
+    }
+}

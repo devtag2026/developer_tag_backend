@@ -69,11 +69,47 @@ const submitQuestion = asyncHandler(async (req, res) => {
 
 //Admin only
 const getAllFormSubmissions = asyncHandler(async (req, res) => {
-    const formSubmissions = await FormSubmission.find({})
-        .sort({ createdAt: -1 });
+    const rawPage = Number(req.query.page) || 1;
+    const rawLimit = Number(req.query.limit) || 10;
+    const page = rawPage < 1 ? 1 : rawPage;
+    const limit = rawLimit < 1 ? 10 : Math.min(rawLimit, 100);
+    const search = (req.query.search || "").trim();
+    const type = (req.query.type || "").trim(); // optional filter by formType
+
+    const filter = {};
+    if (search) {
+        const regex = new RegExp(search, "i");
+        filter.$or = [
+            { name: { $regex: regex } },
+            { email: { $regex: regex } },
+            { description: { $regex: regex } },
+        ];
+    }
+    if (type) {
+        filter.formType = type;
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [items, total] = await Promise.all([
+        FormSubmission.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+        FormSubmission.countDocuments(filter),
+    ]);
+
+    const totalPages = Math.ceil(total / limit) || 1;
 
     return res.status(200).json(
-        new ApiResponse(200, formSubmissions, "Form submissions retrieved successfully")
+        new ApiResponse(200, {
+            items,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages,
+                hasNextPage: page < totalPages,
+                hasPrevPage: page > 1,
+            }
+        }, "Form submissions retrieved successfully")
     );
 });
 

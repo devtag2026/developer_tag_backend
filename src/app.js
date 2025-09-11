@@ -8,8 +8,18 @@ const app = express();
 
 app.disable("x-powered-by")
 
+// CORS configuration: support comma-separated origins or "*"
+const corsEnv = process.env.CORS_ORIGIN || "http://localhost:3000,http://localhost:5173";
+const allowedOrigins = corsEnv.split(",").map((o) => o.trim()).filter(Boolean);
+
 app.use(cors({
-    origin: process.env.CORS_ORIGIN || "http://localhost:3000",
+    origin: (origin, callback) => {
+        if (!origin) return callback(null, true); // allow non-browser tools
+        if (corsEnv === "*" || allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        return callback(new Error("Not allowed by CORS"));
+    },
     credentials: true
 }))
 
@@ -26,12 +36,14 @@ import testimonialRouter from "./routes/testimonial.route.js"
 import portfolioRouter from "./routes/portfolio.route.js"
 import formRouter from "./routes/form.route.js"
 import serviceRouter from "./routes/service.route.js"
+import statsRouter from "./routes/stats.route.js"
 
 app.use("/api/v1/users", userRouter)
 app.use("/api/v1/testimonials", testimonialRouter)
 app.use("/api/v1/portfolio", portfolioRouter)
 app.use("/api/v1/forms", formRouter)
 app.use("/api/v1/services", serviceRouter)
+app.use("/api/v1/stats", statsRouter)
 
 // 404 handler
 app.use(notFoundHandler)

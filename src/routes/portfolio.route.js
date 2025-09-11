@@ -1,20 +1,21 @@
 import { Router } from "express";
 import { getPortfolios, addPortfolio, updatePortfolio, deletePortfolio, getTotalPortfolios, getLatestPortfolio } from "../controllers/portfolio.controller.js";
-import { verifyJWT } from "../middlewares/auth.middleware.js";
+import { verifyJWT, authorizeRoles } from "../middlewares/auth.middleware.js";
 import { upload } from "../middlewares/multer.middleware.js";
 
 const router = Router();
 
 
-router.route("/").get(verifyJWT, getPortfolios);
+router.route("/").get(verifyJWT, authorizeRoles("admin"), getPortfolios);
 router.route("/all-portfolio").get(getPortfolios);
-router.route("/total-portfolio").get(verifyJWT, getTotalPortfolios);
-router.route("/latest-portfolio").get(verifyJWT, getLatestPortfolio);
+router.route("/total-portfolio").get(verifyJWT, authorizeRoles("admin"), getTotalPortfolios);
+router.route("/latest-portfolio").get(verifyJWT, authorizeRoles("admin"), getLatestPortfolio);
 
 
 router.route("/")
     .post(
-        verifyJWT,  // Require authentication
+        verifyJWT,
+        authorizeRoles("admin"),
         upload.fields([
             { name: "previewImage", maxCount: 1 },
             { name: "websiteDemo", maxCount: 1 },
@@ -25,7 +26,8 @@ router.route("/")
     );
 
 router.route("/:id").patch(
-    verifyJWT, // Require authentication
+    verifyJWT,
+    authorizeRoles("admin"),
     upload.fields([
         { name: "previewImage", maxCount: 1 },
         { name: "websiteDemo", maxCount: 1 },
@@ -36,6 +38,6 @@ router.route("/:id").patch(
 );
 
 
-router.route("/:id").delete(verifyJWT, deletePortfolio);
+router.route("/:id").delete(verifyJWT, authorizeRoles("admin"), deletePortfolio);
 
 export default router;

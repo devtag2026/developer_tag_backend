@@ -4,8 +4,6 @@ import { ApiError } from "../utils/apiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 
-
-
 // ----------- Adding Portfolio --------------
 export const addPortfolio = asyncHandler(async (req, res) => {
     const { slug, title, tagLine, projectScopeDescription, techStack } = req.body;
@@ -89,7 +87,6 @@ export const addPortfolio = asyncHandler(async (req, res) => {
 });
 
 
-
 // ----------- Updating Portfolio --------------
 export const updatePortfolio = asyncHandler(async (req, res) => {
     const portfolio = await Portfolio.findById(req.params.id);
@@ -162,8 +159,44 @@ export const updatePortfolio = asyncHandler(async (req, res) => {
 
 // ----------- Get Portfolio --------------
 export const getPortfolios = asyncHandler(async (req, res) => {
-    const portfolios = await Portfolio.find().populate("user", "fullName email");
-    return res.status(200).json(new ApiResponse(200, portfolios, "Portfolios fetched successfully"));
+    const rawPage = Number(req.query.page) || 1;
+    const rawLimit = Number(req.query.limit) || 10;
+    const page = rawPage < 1 ? 1 : rawPage;
+    const limit = rawLimit < 1 ? 10 : Math.min(rawLimit, 100);
+    const search = (req.query.search || "").trim();
+
+    const filter = {};
+    if (search) {
+        const regex = new RegExp(search, "i");
+        filter.$or = [
+            { slug: { $regex: regex } },
+            { title: { $regex: regex } },
+            { tagLine: { $regex: regex } },
+            { projectScopeDescription: { $regex: regex } },
+            { "techStack.tech": { $regex: regex } },
+        ];
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [items, total] = await Promise.all([
+        Portfolio.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+        Portfolio.countDocuments(filter),
+    ]);
+
+    const totalPages = Math.ceil(total / limit) || 1;
+
+    return res.status(200).json(new ApiResponse(200, {
+        items,
+        pagination: {
+            page,
+            limit,
+            total,
+            totalPages,
+            hasNextPage: page < totalPages,
+            hasPrevPage: page > 1,
+        }
+    }, "Portfolios fetched successfully"));
 });
 
 // ----------- Delete Portfolio --------------

@@ -274,9 +274,16 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 
 // ----Updating User Avatar------
 const updateUserAvatar = asyncHandler(async (req, res) => {
+    console.log("Debug - req.headers['content-type']:", req.headers['content-type'])
+    console.log("Debug - req.files:", req.files)
+    console.log("Debug - req.file:", req.file)
+    console.log("Debug - req.body:", req.body)
+
     const avatarLocalPath = req.file?.path
+    console.log("Debug - avatarLocalPath:", avatarLocalPath)
+
     if (!avatarLocalPath) {
-        throw new ApiError(400, "File not found")
+        throw new ApiError(400, "File not found. Please ensure you're sending the file as multipart/form-data with field name 'avatar'")
     }
 
     // to delete previous image

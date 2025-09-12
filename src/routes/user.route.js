@@ -29,7 +29,23 @@ router.route("/change-password").post(verifyJWT, passwordChange)
 router.route("/current-user").get(verifyJWT, getCurrentUser)
 router.route("/update-account").patch(verifyJWT, authorizeRoles("admin"), updateAccountDetails)
 
-router.route("/update-avatar").patch(verifyJWT, authorizeRoles("admin"), upload.single("avatar"), updateUserAvatar)
+router.route("/update-avatar").patch(
+    verifyJWT,
+    authorizeRoles("admin"),
+    (req, res, next) => {
+        upload.single("avatar")(req, res, (err) => {
+            if (err) {
+                console.log("Multer error:", err);
+                return res.status(400).json({
+                    success: false,
+                    message: "File upload error: " + err.message
+                });
+            }
+            next();
+        });
+    },
+    updateUserAvatar
+)
 
 
 

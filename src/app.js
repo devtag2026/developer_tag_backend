@@ -9,7 +9,7 @@ const app = express();
 app.disable("x-powered-by")
 
 // CORS configuration: support comma-separated origins or "*"
-const corsEnv = process.env.CORS_ORIGIN || "http://localhost:3000,http://localhost:5173";
+const corsEnv = process.env.CORS_ORIGIN || "http://localhost:3000,http://localhost:3001";
 const allowedOrigins = corsEnv.split(",").map((o) => o.trim()).filter(Boolean);
 
 app.use(cors({

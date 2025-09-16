@@ -3,9 +3,15 @@ import mongoose, { Schema } from 'mongoose';
 // Define enums for validation
 export const SERVICE_TYPES = [
     'Web Development',
+    'App Development',
     'Video Editing',
     'AI Solutions',
+    'UI/UX Design',
+    'SEO Optimization',
+    'Content Writing',
+    'Social Media Management',
     'Graphic Design',
+    'Video Production',
     'Digital Marketing',
 ];
 

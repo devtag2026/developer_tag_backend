@@ -13,6 +13,9 @@ const storage = multer.diskStorage({
     }
 });
 
+// Make max upload size configurable; default to 20MB
+const maxFileSizeMb = Number(process.env.MAX_UPLOAD_MB) || 20;
+
 export const upload = multer({
     storage,
     fileFilter: (req, file, cb) => {
@@ -20,6 +23,6 @@ export const upload = multer({
         cb(null, true);
     },
     limits: {
-        fileSize: 5 * 1024 * 1024, // 5MB limit
+        fileSize: maxFileSizeMb * 1024 * 1024,
     }
 });

@@ -12,9 +12,6 @@
       "dest": "src/index.js"
     }
   ],
-  "env": {
-    "NODE_ENV": "production"
-  },
   "functions": {
     "src/index.js": {
       "maxDuration": 30

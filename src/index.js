@@ -13,38 +13,23 @@ process.on("unhandledRejection", (reason) => {
     console.error("Unhandled Rejection:", reason);
 });
 
-// For Vercel deployment
-let isConnected = false;
-
-const connectToDB = async () => {
-    if (!isConnected) {
-        try {
-            await connectDB();
-            isConnected = true;
-            console.log("Database connected successfully");
-        } catch (error) {
-            console.error("Database connection failed:", error.message);
-        }
-    }
-};
-
-// Connect to database on cold start
-connectToDB();
-
-// For local development
-if (process.env.NODE_ENV !== 'production') {
-    connectDB()
-        .then(() => {
+// Connect to database
+connectDB()
+    .then(() => {
+        // Only start server in development
+        if (process.env.NODE_ENV !== 'production') {
             const port = process.env.PORT || 5000;
             app.listen(port, () => {
                 console.log(`Server is running on port ${port}`);
             });
-        })
-        .catch((err) => {
-            console.log("Error occurred in mongoDb connection ", err.message);
+        }
+    })
+    .catch((err) => {
+        console.log("Error occurred in mongoDb connection ", err.message);
+        if (process.env.NODE_ENV !== 'production') {
             process.exit(1);
-        });
-}
+        }
+    });
 
 // Export for Vercel
 export default app;

@@ -38,6 +38,16 @@ import formRouter from "./routes/form.route.js"
 import serviceRouter from "./routes/service.route.js"
 import statsRouter from "./routes/stats.route.js"
 
+// Health check endpoint
+app.get("/api/health", (req, res) => {
+    res.status(200).json({
+        status: "OK",
+        message: "Server is running",
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || "development"
+    });
+});
+
 app.use("/api/v1/users", userRouter)
 app.use("/api/v1/testimonials", testimonialRouter)
 app.use("/api/v1/portfolio", portfolioRouter)

@@ -1,15 +1,21 @@
 {
-  "name": "backend",
+  "name": "developertag-backend",
   "version": "1.0.0",
   "type": "module",
-  "main": "index.js",
+  "main": "src/index.js",
   "scripts": {
     "dev": "nodemon -r dotenv/config --experimental-json-modules src/index.js",
+    "start": "node src/index.js",
+    "build": "echo 'No build step required for Node.js backend'",
     "kill-port": "powershell -Command \"Stop-Process -Id (Get-NetTCPConnection -LocalPort 8000).OwningProcess -Force\""
   },
-  "author": "",
+  "author": "DeveloperTag",
   "license": "ISC",
-  "description": "",
+  "description": "DeveloperTag Backend API - Node.js Express server with MongoDB",
+  "keywords": ["api", "backend", "express", "mongodb", "developertag"],
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
     "bcrypt": "^5.1.1",
     "brcypt": "^1.0.1",

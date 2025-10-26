@@ -47,68 +47,57 @@ export const getTestimonials = asyncHandler(async (req, res) => {
 
 // ---Add a new testimonial-----
 export const addTestimonial = asyncHandler(async (req, res) => {
-    const { content, name, title } = req.body;
+  const { content, name, title, category } = req.body;
 
-    if (!content || !name || !title) {
-        throw new ApiError(400, "Missing required fields");
-    }
+  //  Validation
+  if (!content || !name || !title) {
+    throw new ApiError(400, "Missing required fields");
+  }
 
-    // No user association required
+  //  Create new testimonial without image
+  const newTestimonial = new Testimonial({
+    content,
+    name,
+    title,
+    category, //  included category field
+  });
 
-    // Process file upload for testimonialImg
-    let testimonialImgUrl = "";
-    const testimonialImgFile = req.files?.testimonialImg?.[0];
-    if (testimonialImgFile) {
-        const uploadResult = await uploadOnCloudinary(testimonialImgFile.path);
-        if (!uploadResult) {
-            throw new ApiError(500, "Error uploading testimonial image");
-        }
-        testimonialImgUrl = uploadResult.url;
-    }
+  const savedTestimonial = await newTestimonial.save();
 
-    // Create the new testimonial
-    const newTestimonial = new Testimonial({
-        content,
-        name,
-        title,
-        testimonialImg: testimonialImgUrl || req.body.testimonialImg,
-    });
-
-    const savedTestimonial = await newTestimonial.save();
-
-    return res
-        .status(201)
-        .json(new ApiResponse(201, savedTestimonial, "Testimonial added successfully"));
+  return res
+    .status(201)
+    .json(
+      new ApiResponse(201, savedTestimonial, "Testimonial added successfully")
+    );
 });
+
 
 // ---Update a testimonial (excluding testimonialImg)-----
 export const updateTestimonial = asyncHandler(async (req, res) => {
-    const testimonial = await Testimonial.findById(req.params.id);
-    if (!testimonial) {
-        throw new ApiError(404, "Testimonial not found");
-    }
+  const { content, name, title, category } = req.body;
 
-    // Update text fields
-    const { content, name, title } = req.body;
-    testimonial.content = content || testimonial.content;
-    testimonial.name = name || testimonial.name;
-    testimonial.title = title || testimonial.title;
+  const updatedTestimonial = await Testimonial.findByIdAndUpdate(
+    req.params.id,
+    {
+      ...(content && { content }),
+      ...(name && { name }),
+      ...(title && { title }),
+      ...(category && { category }),
+    },
+    { new: true, runValidators: true }
+  );
 
-    // Process file upload for testimonialImg if provided
-    const testimonialImgFile = req.files?.testimonialImg?.[0];
-    if (testimonialImgFile) {
-        const uploadResult = await uploadOnCloudinary(testimonialImgFile.path);
-        if (!uploadResult) {
-            throw new ApiError(500, "Error uploading testimonial image");
-        }
-        testimonial.testimonialImg = uploadResult.url;
-    }
+  if (!updatedTestimonial) {
+    throw new ApiError(404, "Testimonial not found");
+  }
 
-    const updatedTestimonial = await testimonial.save();
-    return res
-        .status(200)
-        .json(new ApiResponse(200, updatedTestimonial, "Testimonial updated successfully"));
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, updatedTestimonial, "Testimonial updated successfully")
+    );
 });
+
 
 // ---Delete a testimonial-----
 export const deleteTestimonial = asyncHandler(async (req, res) => {

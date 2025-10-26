@@ -4,183 +4,107 @@ import { ApiError } from "../utils/apiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 
-// ----------- Adding Portfolio --------------
+// ----------- Add Portfolio Project --------------
 export const addPortfolio = asyncHandler(async (req, res) => {
-    const { slug, title, tagLine, projectScopeDescription, techStack } = req.body;
-    console.log(req.body);
+    const { name, description, cost, url, category, featured, displayOrder } = req.body;
 
-    // Ensure required fields are present.
-    if (!slug || !title || !tagLine || !projectScopeDescription || !techStack) {
-        throw new ApiError(400, "Missing required fields");
+    // Validate required fields
+    if (!name || !description || !cost || !url || !category) {
+        throw new ApiError(400, "Missing required fields: name, description, cost, url, category");
     }
 
-    // Ensure the authenticated user exists.
-    if (!req.user || !req.user._id) {
-        throw new ApiError(401, "Unauthorized: User information not found");
+    // Process image upload if provided
+    let imageUrl = req.body.image;
+    if (req.files?.image?.[0]) {
+        const imageUpload = await uploadOnCloudinary(req.files.image[0].path);
+        imageUrl = imageUpload?.url || imageUrl;
     }
 
-    // Process techStack to ensure it's an array of objects { tech: "..." }.
-    let techStackArray = techStack;
-    if (typeof techStack === "string") {
-        try {
-            techStackArray = JSON.parse(techStack);
-            if (!Array.isArray(techStackArray)) {
-                techStackArray = techStack.split(",").filter(Boolean);
-            }
-        } catch (err) {
-            techStackArray = techStack.split(",").filter(Boolean);
-        }
-    }
-    // Map each element: if already an object with a tech property, use it; otherwise, wrap it.
-    techStackArray = techStackArray.map((tech) => {
-        if (typeof tech === "object" && tech !== null && tech.tech) {
-            return { tech: String(tech.tech).trim() };
-        } else {
-            return { tech: String(tech).trim() };
-        }
-    });
-
-    // Process file upload for previewImage.
-    let previewImageUrl = req.body.previewImage;
-    if (req.files?.previewImage?.[0]) {
-        const previewUpload = await uploadOnCloudinary(req.files.previewImage[0].path);
-        previewImageUrl = previewUpload?.url || previewImageUrl;
+    if (!imageUrl) {
+        throw new ApiError(400, "Image is required");
     }
 
-    // Process optional image fields: websiteDemo, mobileDemo, adminPanelImage.
-    let websiteDemoUrl = req.body.websiteDemo || "";
-    if (req.files?.websiteDemo?.[0]) {
-        const websiteUpload = await uploadOnCloudinary(req.files.websiteDemo[0].path);
-        websiteDemoUrl = websiteUpload?.url || websiteDemoUrl;
-    }
-
-    let mobileDemoUrl = req.body.mobileDemo || "";
-    if (req.files?.mobileDemo?.[0]) {
-        const mobileUpload = await uploadOnCloudinary(req.files.mobileDemo[0].path);
-        mobileDemoUrl = mobileUpload?.url || mobileDemoUrl;
-    }
-
-    let adminPanelImageUrl = req.body.adminPanelImage || "";
-    if (req.files?.adminPanelImage?.[0]) {
-        const adminUpload = await uploadOnCloudinary(req.files.adminPanelImage[0].path);
-        adminPanelImageUrl = adminUpload?.url || adminPanelImageUrl;
-    }
-
-    // Create the new portfolio entry with the authenticated user's _id.
+    // Create new portfolio project
     const newPortfolio = new Portfolio({
-        slug,
-        title,
-        tagLine,
-        projectScopeDescription,
-        techStack: techStackArray,
-        previewImage: previewImageUrl,
-        websiteDemo: websiteDemoUrl,
-        mobileDemo: mobileDemoUrl,
-        adminPanelImage: adminPanelImageUrl,
-        user: req.user._id, // Attach user reference.
+        name,
+        description,
+        cost,
+        image: imageUrl,
+        url,
+        category,
+        featured: featured || false,
+        displayOrder: displayOrder || 0,
     });
 
     const savedPortfolio = await newPortfolio.save();
     return res
         .status(201)
-        .json(new ApiError(201, savedPortfolio, "Portfolio added successfully"));
+        .json(new ApiResponse(201, savedPortfolio, "Portfolio project added successfully"));
 });
 
-
-// ----------- Updating Portfolio --------------
+// ----------- Update Portfolio Project --------------
 export const updatePortfolio = asyncHandler(async (req, res) => {
     const portfolio = await Portfolio.findById(req.params.id);
     if (!portfolio) {
         throw new ApiError(404, "Portfolio not found");
     }
 
-    // Ensure that the authenticated user is the owner.
-    if (String(portfolio.user) !== String(req.user._id)) {
-        throw new ApiError(403, "Forbidden: You do not have permission to update this portfolio");
-    }
+    // Update text fields from req.body
+    const { name, description, cost, url, category, featured, displayOrder } = req.body;
+    if (name) portfolio.name = name;
+    if (description) portfolio.description = description;
+    if (cost) portfolio.cost = cost;
+    if (url) portfolio.url = url;
+    if (category) portfolio.category = category;
+    if (featured !== undefined) portfolio.featured = featured;
+    if (displayOrder !== undefined) portfolio.displayOrder = displayOrder;
 
-    // Update text fields from req.body.
-    const { slug, title, tagLine, projectScopeDescription, techStack } = req.body;
-    if (slug) portfolio.slug = slug;
-    if (title) portfolio.title = title;
-    if (tagLine) portfolio.tagLine = tagLine;
-    if (projectScopeDescription) portfolio.projectScopeDescription = projectScopeDescription;
-
-    if (techStack) {
-        let techStackArray = techStack;
-        if (typeof techStack === "string") {
-            try {
-                techStackArray = JSON.parse(techStack);
-                if (!Array.isArray(techStackArray)) {
-                    techStackArray = techStack.split(",").filter(Boolean);
-                }
-            } catch (err) {
-                techStackArray = techStack.split(",").filter(Boolean);
-            }
-        }
-        // For each element, if it is already an object with a `tech` property, simply trim it;
-        // otherwise, wrap it into an object.
-        techStackArray = techStackArray.map((tech) => {
-            if (typeof tech === "object" && tech !== null && tech.tech) {
-                return { tech: String(tech.tech).trim() };
-            } else {
-                return { tech: String(tech).trim() };
-            }
-        });
-        portfolio.techStack = techStackArray;
-    }
-
-    // Process file uploads; if a file is provided, upload and update the corresponding field.
-    if (req.files?.previewImage?.[0]) {
-        const previewUpload = await uploadOnCloudinary(req.files.previewImage[0].path);
-        if (previewUpload?.url) portfolio.previewImage = previewUpload.url;
-    }
-    if (req.files?.websiteDemo?.[0]) {
-        const websiteUpload = await uploadOnCloudinary(req.files.websiteDemo[0].path);
-        if (websiteUpload?.url) portfolio.websiteDemo = websiteUpload.url;
-    }
-    if (req.files?.mobileDemo?.[0]) {
-        const mobileUpload = await uploadOnCloudinary(req.files.mobileDemo[0].path);
-        if (mobileUpload?.url) portfolio.mobileDemo = mobileUpload.url;
-    }
-    if (req.files?.adminPanelImage?.[0]) {
-        const adminUpload = await uploadOnCloudinary(req.files.adminPanelImage[0].path);
-        if (adminUpload?.url) portfolio.adminPanelImage = adminUpload.url;
+    // Process image upload if provided
+    if (req.files?.image?.[0]) {
+        const imageUpload = await uploadOnCloudinary(req.files.image[0].path);
+        if (imageUpload?.url) portfolio.image = imageUpload.url;
     }
 
     const updatedPortfolio = await portfolio.save();
     return res
         .status(200)
-        .json(new ApiError(200, updatedPortfolio, "Portfolio updated successfully"));
+        .json(new ApiResponse(200, updatedPortfolio, "Portfolio project updated successfully"));
 });
 
-
-
-
-// ----------- Get Portfolio --------------
+// ----------- Get All Portfolios --------------
 export const getPortfolios = asyncHandler(async (req, res) => {
     const rawPage = Number(req.query.page) || 1;
     const rawLimit = Number(req.query.limit) || 10;
     const page = rawPage < 1 ? 1 : rawPage;
     const limit = rawLimit < 1 ? 10 : Math.min(rawLimit, 100);
     const search = (req.query.search || "").trim();
+    const category = req.query.category?.trim();
+    const featured = req.query.featured;
 
+    // Build filter
     const filter = {};
     if (search) {
         const regex = new RegExp(search, "i");
         filter.$or = [
-            { slug: { $regex: regex } },
-            { title: { $regex: regex } },
-            { tagLine: { $regex: regex } },
-            { projectScopeDescription: { $regex: regex } },
-            { "techStack.tech": { $regex: regex } },
+            { name: { $regex: regex } },
+            { description: { $regex: regex } },
+            { cost: { $regex: regex } },
         ];
+    }
+    if (category) {
+        filter.category = category;
+    }
+    if (featured !== undefined) {
+        filter.featured = featured === 'true';
     }
 
     const skip = (page - 1) * limit;
 
     const [items, total] = await Promise.all([
-        Portfolio.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+        Portfolio.find(filter)
+            .sort({ category: 1, displayOrder: 1, createdAt: -1 })
+            .skip(skip)
+            .limit(limit),
         Portfolio.countDocuments(filter),
     ]);
 
@@ -199,35 +123,109 @@ export const getPortfolios = asyncHandler(async (req, res) => {
     }, "Portfolios fetched successfully"));
 });
 
+// ----------- Get Portfolios by Category --------------
+export const getPortfoliosByCategory = asyncHandler(async (req, res) => {
+    const category = req.params.category;
+
+    if (!category) {
+        throw new ApiError(400, "Category is required");
+    }
+
+    const portfolios = await Portfolio.find({ category })
+        .sort({ displayOrder: 1, createdAt: -1 });
+
+    return res.status(200).json(new ApiResponse(200, {
+        category,
+        items: portfolios
+    }, `Portfolios for category '${category}' fetched successfully`));
+});
+
+// ----------- Get Portfolios Grouped by Category --------------
+export const getPortfoliosGroupedByCategory = asyncHandler(async (req, res) => {
+    console.log("🔍 Fetching portfolios from database...");
+    
+    const portfolios = await Portfolio.find()
+        .sort({ category: 1, displayOrder: 1, createdAt: -1 });
+
+    console.log(`📊 Found ${portfolios.length} portfolios in database`);
+    
+    if (portfolios.length === 0) {
+        console.log("⚠️  No portfolios found in database. Checking collection name...");
+        const collection = Portfolio.collection.name;
+        console.log(`📁 Collection name: ${collection}`);
+        
+        const count = await Portfolio.countDocuments();
+        console.log(`📊 Total documents in collection: ${count}`);
+    }
+
+    // Category to display name mapping
+    const categoryMap = {
+        'custom-software-solutions': 'Custom Software Solutions',
+        'web-development': 'Web Development',
+        'e-commerce': 'E-commerce',
+        'app-development': 'App Development',
+        'content-management-system': 'Content Management System',
+        'desktop-applications': 'Desktop Applications',
+        'software-as-a-service': 'Software as a Service (SaaS)'
+    };
+
+    // Group by category
+    const grouped = {};
+    portfolios.forEach(portfolio => {
+        if (!grouped[portfolio.category]) {
+            grouped[portfolio.category] = [];
+        }
+        grouped[portfolio.category].push(portfolio);
+    });
+
+    // Format response
+    const categories = Object.keys(grouped).map(category => ({
+        title: categoryMap[category] || category,
+        slug: category,
+        projects: grouped[category]
+    }));
+
+    console.log(`✅ Returning ${categories.length} categories with ${portfolios.length} total projects`);
+
+    return res.status(200).json(new ApiResponse(200, {
+        categories,
+        total: portfolios.length
+    }, "Portfolios grouped by category fetched successfully"));
+});
+
+// ----------- Get Single Portfolio --------------
+export const getPortfolioById = asyncHandler(async (req, res) => {
+    const portfolio = await Portfolio.findById(req.params.id);
+
+    if (!portfolio) {
+        throw new ApiError(404, "Portfolio not found");
+    }
+
+    return res.status(200).json(new ApiResponse(200, portfolio, "Portfolio fetched successfully"));
+});
+
 // ----------- Delete Portfolio --------------
 export const deletePortfolio = asyncHandler(async (req, res) => {
-    // Use the static method on the Portfolio model
     const deletedPortfolio = await Portfolio.findByIdAndDelete(req.params.id);
 
     if (!deletedPortfolio) {
         throw new ApiError(404, "Portfolio not found");
     }
 
-    return res.status(200).json({
-        status: 200,
-        data: {},
-        message: "Portfolio deleted successfully"
-    });
+    return res.status(200).json(new ApiResponse(200, {}, "Portfolio deleted successfully"));
 });
 
-export const getLatestPortfolio = asyncHandler(async (req, res) => {
-    const latestPortfolio = await Portfolio.findOne().sort({ createdAt: -1 }).populate("user", "fullName email");
+// ----------- Get Featured Portfolios --------------
+export const getFeaturedPortfolios = asyncHandler(async (req, res) => {
+    const portfolios = await Portfolio.find({ featured: true })
+        .sort({ displayOrder: 1, createdAt: -1 })
+        .limit(10);
 
-    if (!latestPortfolio) {
-        throw new ApiError(404, "No portfolio found");
-    }
-
-    return res.status(200).json(new ApiResponse(200, latestPortfolio, "Latest portfolio fetched successfully"));
+    return res.status(200).json(new ApiResponse(200, portfolios, "Featured portfolios fetched successfully"));
 });
 
-
+// ----------- Get Total Portfolios --------------
 export const getTotalPortfolios = asyncHandler(async (req, res) => {
-    const totalPortfolios = await Portfolio.countDocuments();
-
-    return res.status(200).json(new ApiResponse(200, { total: totalPortfolios }, "Total number of portfolios fetched successfully"));
+    const total = await Portfolio.countDocuments();
+    return res.status(200).json(new ApiResponse(200, { total }, "Total portfolios fetched successfully"));
 });

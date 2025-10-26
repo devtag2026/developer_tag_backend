@@ -2,63 +2,87 @@ import mongoose, { Schema } from "mongoose";
 
 const portfolioSchema = new Schema(
     {
-        slug: {
+        name: {
             type: String,
-            required: [true, "Slug is required"],
-            unique: true,
+            required: [true, "Project name is required"],
+            trim: true,
+            minlength: [3, "Name must be at least 3 characters"],
+            maxlength: [100, "Name cannot exceed 100 characters"],
+        },
+        description: {
+            type: String,
+            required: [true, "Description is required"],
+            trim: true,
+            minlength: [10, "Description must be at least 10 characters"],
+            maxlength: [500, "Description cannot exceed 500 characters"],
+        },
+        cost: {
+            type: String,
+            required: [true, "Cost is required"],
             trim: true,
         },
-        title: {
+        image: {
             type: String,
-            required: [true, "Title is required"],
+            required: [true, "Image URL is required"],
             trim: true,
         },
-        tagLine: {
+        url: {
             type: String,
-            required: [true, "Tag line is required"],
+            required: [true, "URL is required"],
             trim: true,
-        },
-        projectScopeDescription: {
-            type: String,
-            required: [true, "Project scope description is required"],
-            trim: true,
-        },
-        // Modified techStack: each element is an object with a 'tech' field.
-        techStack: [
-            {
-                tech: {
-                    type: String,
-                    required: [true, "At least one technology is required"],
-                    trim: true,
+            validate: {
+                validator: function(v) {
+                    return /^https?:\/\/.+/.test(v);
                 },
+                message: "URL must be a valid HTTP or HTTPS URL",
             },
-        ],
-        previewImage: {
+        },
+        category: {
             type: String,
-            required: [true, "Preview image is required"],
+            required: [true, "Category is required"],
+            enum: [
+                'custom-software-solutions',
+                'web-development',
+                'e-commerce',
+                'app-development',
+                'content-management-system',
+                'desktop-applications',
+                'software-as-a-service'
+            ],
             trim: true,
         },
-        websiteDemo: {
-            type: String,
-            trim: true,
+        featured: {
+            type: Boolean,
+            default: false,
         },
-        mobileDemo: {
-            type: String,
-            trim: true,
-        },
-        adminPanelImage: {
-            type: String,
-            trim: true,
-        },
-        user: {
-            type: Schema.Types.ObjectId,
-            ref: "User",
-            required: true,
+        displayOrder: {
+            type: Number,
+            default: 0,
         },
     },
     {
         timestamps: true,
     }
 );
+
+// Index for efficient querying
+portfolioSchema.index({ category: 1 });
+portfolioSchema.index({ featured: 1 });
+portfolioSchema.index({ displayOrder: 1 });
+portfolioSchema.index({ category: 1, displayOrder: 1 });
+
+// Virtual for category display name
+portfolioSchema.virtual('categoryDisplayName').get(function() {
+    const categoryMap = {
+        'custom-software-solutions': 'Custom Software Solutions',
+        'web-development': 'Web Development',
+        'e-commerce': 'E-commerce',
+        'app-development': 'App Development',
+        'content-management-system': 'Content Management System',
+        'desktop-applications': 'Desktop Applications',
+        'software-as-a-service': 'Software as a Service (SaaS)'
+    };
+    return categoryMap[this.category] || this.category;
+});
 
 export default mongoose.model("Portfolio", portfolioSchema);

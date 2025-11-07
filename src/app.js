@@ -45,6 +45,10 @@ app.use("/api/v1/forms", formRouter)
 app.use("/api/v1/services", serviceRouter)
 app.use("/api/v1/stats", statsRouter)
 
+app.get("/", (req, res) => {
+    res.send("Welcome to DeveloperTag Backend API")
+})
+
 // 404 handler
 app.use(notFoundHandler)
 

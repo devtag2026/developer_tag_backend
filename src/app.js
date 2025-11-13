@@ -9,18 +9,35 @@ const app = express();
 app.disable("x-powered-by")
 
 // CORS configuration: support comma-separated origins or "*"
-const corsEnv ="http://localhost:3000,http://localhost:3001,https://developertag.com/";
-const allowedOrigins = corsEnv.split(",").map((o) => o.trim()).filter(Boolean);
+const corsEnv = process.env.CORS_ORIGINS || "http://localhost:3000,http://localhost:3001,https://developertag.com,https://www.developertag.com";
+const allowedOrigins = corsEnv.split(",").map((o) => o.trim().replace(/\/$/, "")).filter(Boolean);
 
 app.use(cors({
     origin: (origin, callback) => {
-        if (!origin) return callback(null, true); // allow non-browser tools
-        if (corsEnv === "*" || allowedOrigins.includes(origin)) {
+        // Allow requests with no origin (like mobile apps, Postman, etc.)
+        if (!origin) return callback(null, true);
+        
+        // Allow all origins if CORS_ORIGINS is "*"
+        if (corsEnv === "*") {
             return callback(null, true);
         }
+        
+        // Normalize origin by removing trailing slash for comparison
+        const normalizedOrigin = origin.replace(/\/$/, "");
+        
+        // Check if origin is in allowed list (with or without trailing slash)
+        if (allowedOrigins.includes(normalizedOrigin) || allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        
+        console.log(`CORS blocked origin: ${origin} (normalized: ${normalizedOrigin})`);
+        console.log(`Allowed origins: ${allowedOrigins.join(", ")}`);
         return callback(new Error("Not allowed by CORS"));
     },
-    credentials: true
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+    exposedHeaders: ["Content-Range", "X-Content-Range"]
 }))
 
 app.use(express.json({ limit: "16kb" }))

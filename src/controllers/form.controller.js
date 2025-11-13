@@ -5,7 +5,7 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { sendFormSubmissionEmail, sendUserConfirmationEmail } from '../utils/resend.js';
 
 const submitServiceRequest = asyncHandler(async (req, res) => {
-    const { name, email, serviceType, description } = req.body;
+    const { name, email, serviceType, description, engagementType } = req.body;
 
     if (!SERVICE_TYPES.includes(serviceType)) {
         throw new ApiError(400, `Invalid service type. Must be one of: ${SERVICE_TYPES.join(', ')}`);
@@ -16,6 +16,7 @@ const submitServiceRequest = asyncHandler(async (req, res) => {
         email,
         serviceType,
         description,
+        engagementType: engagementType || undefined,
         formType: "Request a Service"
     });
 
@@ -26,7 +27,8 @@ const submitServiceRequest = asyncHandler(async (req, res) => {
             email,
             formType: "Request a Service",
             serviceType,
-            description
+            description,
+            engagementType: engagementType || undefined
         }),
         sendUserConfirmationEmail(email, "Request a Service", name)
     ]).catch(error => {

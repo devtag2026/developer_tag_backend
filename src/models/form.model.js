@@ -41,7 +41,7 @@ const formSubmissionSchema = new Schema(
             type: String,
             required: true,
             trim: true,
-            minlength: [10, 'Description must be at least 10 characters long'],
+            // minlength: [10, 'Description must be at least 10 characters long'],
             maxlength: [1000, 'Description cannot exceed 1000 characters']
         },
         serviceType: {
@@ -51,7 +51,11 @@ const formSubmissionSchema = new Schema(
                 message: 'Please select a valid service type'
             }
         },
-
+        engagementType: {
+            type: String,
+            trim: true,
+            maxlength: [100, 'Engagement type cannot exceed 100 characters']
+        },
         formType: {
             type: String,
             required: true,
@@ -69,6 +73,7 @@ const formSubmissionSchema = new Schema(
 // Add indexes for better query performance
 formSubmissionSchema.index({ formType: 1, createdAt: -1 });
 formSubmissionSchema.index({ serviceType: 1 });
+formSubmissionSchema.index({ engagementType: 1 });
 formSubmissionSchema.index({ email: 1 });
 
 const FormSubmission = mongoose.model('FormSubmission', formSubmissionSchema);

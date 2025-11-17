@@ -23,7 +23,7 @@ const portfolioSchema = new Schema(
         },
         image: {
             type: String,
-            required: [true, "Image URL is required"],
+            // required: [true, "Image URL is required"],
             trim: true,
         },
         url: {

@@ -1,10 +1,11 @@
 import { v2 as cloudinary } from "cloudinary";
-import fs from "fs"
+import fs from "fs";
+import { envConfig } from "../config/env.config.js";
 
 cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET
+    cloud_name: envConfig.cloudinaryName,
+    api_key: envConfig.cloudinaryApiKey,
+    api_secret: envConfig.cloudinaryApiSecret
 });
 
 const uploadOnCloudinary = async (filePath) => {
@@ -13,14 +14,31 @@ const uploadOnCloudinary = async (filePath) => {
             return null;
         }
 
+        if (!fs.existsSync(filePath)) {
+            return null;
+        }
+        
         const response = await cloudinary.uploader.upload(filePath, {
             resource_type: "auto"
-        })
-        fs.unlinkSync(filePath);
+        });
+        
+        try {
+            fs.unlinkSync(filePath);
+        } catch (unlinkError) {
+            // Silently handle file deletion errors
+        }
+        
         return response;
 
     } catch (error) {
-        fs.unlinkSync(filePath);
+        try {
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+            }
+        } catch (unlinkError) {
+            // Silently handle file deletion errors
+        }
+        
         return null;
     }
 }

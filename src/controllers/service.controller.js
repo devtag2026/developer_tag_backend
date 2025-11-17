@@ -39,6 +39,18 @@ export const createService = asyncHandler(async (req, res) => {
         heroImageUrl = upload.url;
     }
 
+    // Parse whyChooseSection if it's a JSON string
+    let parsedWhyChooseSection = { items: [] };
+    if (whyChooseSection) {
+        try {
+            parsedWhyChooseSection = typeof whyChooseSection === 'string' 
+                ? JSON.parse(whyChooseSection) 
+                : whyChooseSection;
+        } catch (e) {
+            parsedWhyChooseSection = { items: [] };
+        }
+    }
+
     // Create service
     const service = await Service.create({
         title,
@@ -48,7 +60,7 @@ export const createService = asyncHandler(async (req, res) => {
         heroImage: heroImageUrl,
         heroSection,
         serviceItems: serviceItems || [],
-        whyChooseSection: whyChooseSection || { items: [] }
+        whyChooseSection: parsedWhyChooseSection
     });
 
     return res.status(201).json(new ApiResponse(201, service, "Service created successfully"));
@@ -90,7 +102,20 @@ export const updateService = asyncHandler(async (req, res) => {
     if (category) service.category = category;
     if (heroSection) service.heroSection = heroSection;
     if (serviceItems !== undefined) service.serviceItems = serviceItems;
-    if (whyChooseSection) service.whyChooseSection = whyChooseSection;
+    if (whyChooseSection) {
+        try {
+            service.whyChooseSection = typeof whyChooseSection === 'string' 
+                ? JSON.parse(whyChooseSection) 
+                : whyChooseSection;
+        } catch (e) {
+            // Keep existing whyChooseSection if parsing fails
+        }
+    }
+    
+    // Handle heroImage URL if provided as string (not file)
+    if (req.body.heroImage && !heroImageFile) {
+        service.heroImage = req.body.heroImage;
+    }
 
     const updated = await service.save();
     return res.status(200).json(new ApiResponse(200, updated, "Service updated successfully"));

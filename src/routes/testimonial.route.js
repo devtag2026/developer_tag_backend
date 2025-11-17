@@ -1,7 +1,6 @@
 import { Router } from "express";
-import { getTestimonials, addTestimonial, updateTestimonial, deleteTestimonial, getLatestTestimonial, getTotalTestimonials } from "../controllers/testimonial.controller.js";
+import { getTestimonials, addTestimonial, updateTestimonial, deleteTestimonial, getLatestTestimonial, getTotalTestimonials, getTestimonialById } from "../controllers/testimonial.controller.js";
 import { verifyJWT, authorizeRoles } from "../middlewares/auth.middleware.js";
-import { upload } from "../middlewares/multer.middleware.js";
 
 const router = Router();
 
@@ -17,17 +16,14 @@ router
     addTestimonial 
   );
 
-
 router
   .route("/:id")
+  .get(verifyJWT, authorizeRoles("admin"), getTestimonialById)
   .patch(
     verifyJWT,
     authorizeRoles("admin"),
     updateTestimonial 
-  );
-
-
-
-router.route("/:id").delete(verifyJWT, authorizeRoles("admin"), deleteTestimonial);
+  )
+  .delete(verifyJWT, authorizeRoles("admin"), deleteTestimonial);
 
 export default router;

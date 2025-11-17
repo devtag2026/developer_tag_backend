@@ -13,15 +13,22 @@ export const addPortfolio = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Missing required fields: name, description, cost, url, category");
     }
 
-    // Process image upload if provided
-    let imageUrl = req.body.image;
+    // Process image upload - only file uploads are accepted
+    let imageUrl = null;
+    
     if (req.files?.image?.[0]) {
-        const imageUpload = await uploadOnCloudinary(req.files.image[0].path);
-        imageUrl = imageUpload?.url || imageUrl;
+        const imageFile = req.files.image[0];
+        const imageUpload = await uploadOnCloudinary(imageFile.path);
+        
+        if (!imageUpload || !imageUpload.url) {
+            throw new ApiError(500, "Failed to upload image to Cloudinary. Please check your Cloudinary configuration and server logs.");
+        }
+        
+        imageUrl = imageUpload.url;
     }
 
-    if (!imageUrl) {
-        throw new ApiError(400, "Image is required");
+    if (!imageUrl || imageUrl === '') {
+        throw new ApiError(400, "Image is required. Please provide an image file.");
     }
 
     // Create new portfolio project
@@ -59,10 +66,14 @@ export const updatePortfolio = asyncHandler(async (req, res) => {
     if (featured !== undefined) portfolio.featured = featured;
     if (displayOrder !== undefined) portfolio.displayOrder = displayOrder;
 
-    // Process image upload if provided
-    if (req.files?.image?.[0]) {
-        const imageUpload = await uploadOnCloudinary(req.files.image[0].path);
-        if (imageUpload?.url) portfolio.image = imageUpload.url;
+    // Process image upload if a new file is provided
+    // If no file is provided, keep the existing image
+    const imageFile = req.files?.image?.[0];
+    if (imageFile) {
+        const imageUpload = await uploadOnCloudinary(imageFile.path);
+        if (imageUpload?.url) {
+            portfolio.image = imageUpload.url;
+        }
     }
 
     const updatedPortfolio = await portfolio.save();

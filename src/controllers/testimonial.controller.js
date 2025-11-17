@@ -19,7 +19,7 @@ export const getTestimonials = asyncHandler(async (req, res) => {
         filter.$or = [
             { content: { $regex: regex } },
             { name: { $regex: regex } },
-            { title: { $regex: regex } },
+            { category: { $regex: regex } },
         ];
     }
 
@@ -47,19 +47,18 @@ export const getTestimonials = asyncHandler(async (req, res) => {
 
 // ---Add a new testimonial-----
 export const addTestimonial = asyncHandler(async (req, res) => {
-  const { content, name, title, category } = req.body;
+  const { content, name, category } = req.body;
 
   //  Validation
-  if (!content || !name || !title) {
-    throw new ApiError(400, "Missing required fields");
+  if (!content || !name) {
+    throw new ApiError(400, "Missing required fields: content and name are required");
   }
 
   //  Create new testimonial without image
   const newTestimonial = new Testimonial({
     content,
     name,
-    title,
-    category, //  included category field
+    category, //  optional category field
   });
 
   const savedTestimonial = await newTestimonial.save();
@@ -74,15 +73,14 @@ export const addTestimonial = asyncHandler(async (req, res) => {
 
 // ---Update a testimonial (excluding testimonialImg)-----
 export const updateTestimonial = asyncHandler(async (req, res) => {
-  const { content, name, title, category } = req.body;
+  const { content, name, category } = req.body;
 
   const updatedTestimonial = await Testimonial.findByIdAndUpdate(
     req.params.id,
     {
       ...(content && { content }),
       ...(name && { name }),
-      ...(title && { title }),
-      ...(category && { category }),
+      ...(category !== undefined && { category }),
     },
     { new: true, runValidators: true }
   );
@@ -122,6 +120,16 @@ export const getLatestTestimonial = asyncHandler(async (req, res) => {
     }
 
     return res.status(200).json(new ApiResponse(200, latestTestimonial, "Latest testimonial fetched successfully"));
+});
+
+export const getTestimonialById = asyncHandler(async (req, res) => {
+    const testimonial = await Testimonial.findById(req.params.id);
+    
+    if (!testimonial) {
+        throw new ApiError(404, "Testimonial not found");
+    }
+
+    return res.status(200).json(new ApiResponse(200, testimonial, "Testimonial fetched successfully"));
 });
 
 export const getTotalTestimonials = asyncHandler(async (req, res) => {

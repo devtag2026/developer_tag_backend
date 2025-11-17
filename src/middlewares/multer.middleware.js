@@ -19,10 +19,12 @@ const maxFileSizeMb = Number(process.env.MAX_UPLOAD_MB) || 20;
 export const upload = multer({
     storage,
     fileFilter: (req, file, cb) => {
-        console.log("Multer fileFilter - file:", file);
+
         cb(null, true);
     },
     limits: {
         fileSize: maxFileSizeMb * 1024 * 1024,
     }
 });
+
+

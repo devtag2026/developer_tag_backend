@@ -23,10 +23,8 @@ router.route("/public/category/:category").get(getPortfoliosByCategory); // Get 
 router.route("/public/:id").get(getPortfolioById); // Get single portfolio by ID (public)
 
 // Admin routes
-router.route("/").get(verifyJWT, authorizeRoles("admin"), getPortfolios);
-router.route("/total").get(verifyJWT, authorizeRoles("admin"), getTotalPortfolios);
-
 router.route("/")
+    .get(verifyJWT, authorizeRoles("admin"), getPortfolios)
     .post(
         verifyJWT,
         authorizeRoles("admin"),
@@ -36,7 +34,10 @@ router.route("/")
         addPortfolio
     );
 
+router.route("/total").get(verifyJWT, authorizeRoles("admin"), getTotalPortfolios);
+
 router.route("/:id")
+    .get(verifyJWT, authorizeRoles("admin"), getPortfolioById)
     .patch(
         verifyJWT,
         authorizeRoles("admin"),

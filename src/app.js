@@ -3,13 +3,12 @@ import cors from "cors"
 import cookieParser from "cookie-parser"
 import { notFoundHandler, errorHandler } from "./middlewares/error.middleware.js"
 
-
 const app = express();
 
 app.disable("x-powered-by")
 
 // CORS configuration: support comma-separated origins or "*"
-const corsEnv = process.env.CORS_ORIGINS || "http://localhost:3000,http://localhost:3001,https://developertag.com,https://www.developertag.com";
+const corsEnv = process.env.CORS_ORIGINS || "http://localhost:3000,http://localhost:3001,https://developertag.com,https://www.developertag.com,https://developer-tag-admin.vercel.app/";
 const allowedOrigins = corsEnv.split(",").map((o) => o.trim().replace(/\/$/, "")).filter(Boolean);
 
 app.use(cors({

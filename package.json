@@ -7,7 +7,12 @@
     "dev": "nodemon -r dotenv/config --experimental-json-modules src/index.js",
     "start": "node src/index.js",
     "build": "echo 'No build step required for Node.js backend'",
-    "kill-port": "powershell -Command \"Stop-Process -Id (Get-NetTCPConnection -LocalPort 8000).OwningProcess -Force\""
+    "kill-port": "powershell -Command \"Stop-Process -Id (Get-NetTCPConnection -LocalPort 8000).OwningProcess -Force\"",
+    "seed": "node -r dotenv/config src/utils/seedPortfolios.js",
+    "seed-testimonials": "node -r dotenv/config src/utils/seedTestimonials.js",
+    "seed-portfolios": "node -r dotenv/config src/utils/seedPortfolios.js",
+    "seed-users": "node -r dotenv/config src/utils/seedUsers.js",
+    "seed-admin": "node -r dotenv/config src/utils/seedUsers.js"
   },
   "author": "DeveloperTag",
   "license": "ISC",

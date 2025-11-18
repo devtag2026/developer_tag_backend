@@ -45,7 +45,7 @@ app.use(express.static("public"))
 app.use(cookieParser())
 
 
-// --------Routes------
+// --------Routes--------
 
 import userRouter from "./routes/user.route.js"
 import testimonialRouter from "./routes/testimonial.route.js"

@@ -3,17 +3,69 @@ import crypto from "crypto";
 import multer from "multer";
 import fs from "fs";
 
+// Determine the appropriate temp directory based on environment
+// Vercel/serverless environments use /tmp, local uses ./public/temp
+const getTempDirectory = () => {
+    // Check if we're in a serverless environment (Vercel, AWS Lambda, etc.)
+    // Vercel sets VERCEL=1, AWS Lambda sets AWS_LAMBDA_FUNCTION_NAME
+    const isServerless = process.env.VERCEL === '1' || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+    
+    if (isServerless) {
+        // Serverless environments have /tmp directory that's writable
+        const tmpPath = '/tmp';
+        console.log("📁 [MULTER] Using serverless temp directory:", tmpPath);
+        return tmpPath;
+    } else {
+        // Local development uses ./public/temp
+        const localPath = "./public/temp";
+        console.log("📁 [MULTER] Using local temp directory:", localPath);
+        return localPath;
+    }
+};
+
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        const destPath = "./public/temp";
+        const destPath = getTempDirectory();
         console.log("📁 [MULTER] Setting destination:", destPath);
         console.log("📁 [MULTER] File fieldname:", file.fieldname);
         console.log("📁 [MULTER] File originalname:", file.originalname);
+        console.log("📁 [MULTER] Environment check:", {
+            VERCEL: !!process.env.VERCEL,
+            AWS_LAMBDA: !!process.env.AWS_LAMBDA_FUNCTION_NAME,
+            NODE_ENV: process.env.NODE_ENV
+        });
         
         // Ensure directory exists
-        if (!fs.existsSync(destPath)) {
-            console.log("📁 [MULTER] Creating directory:", destPath);
-            fs.mkdirSync(destPath, { recursive: true });
+        try {
+            if (!fs.existsSync(destPath)) {
+                console.log("📁 [MULTER] Creating directory:", destPath);
+                fs.mkdirSync(destPath, { recursive: true });
+                console.log("✅ [MULTER] Directory created successfully");
+            } else {
+                console.log("✅ [MULTER] Directory already exists");
+            }
+        } catch (mkdirError) {
+            console.error("❌ [MULTER] Error creating directory:", {
+                path: destPath,
+                error: mkdirError.message,
+                code: mkdirError.code
+            });
+            // Try to use /tmp as fallback if local directory fails
+            if (destPath !== '/tmp') {
+                console.log("📁 [MULTER] Falling back to /tmp directory");
+                const fallbackPath = '/tmp';
+                try {
+                    if (!fs.existsSync(fallbackPath)) {
+                        fs.mkdirSync(fallbackPath, { recursive: true });
+                    }
+                    cb(null, fallbackPath);
+                    return;
+                } catch (fallbackError) {
+                    console.error("❌ [MULTER] Fallback directory also failed:", fallbackError.message);
+                }
+            }
+            cb(mkdirError);
+            return;
         }
         
         cb(null, destPath);

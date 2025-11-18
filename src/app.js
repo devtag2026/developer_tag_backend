@@ -53,6 +53,7 @@ import portfolioRouter from "./routes/portfolio.route.js"
 import formRouter from "./routes/form.route.js"
 import serviceRouter from "./routes/service.route.js"
 import statsRouter from "./routes/stats.route.js"
+import careerRouter from "./routes/career.route.js"
 
 app.use("/api/v1/users", userRouter)
 app.use("/api/v1/testimonials", testimonialRouter)
@@ -60,6 +61,7 @@ app.use("/api/v1/portfolio", portfolioRouter)
 app.use("/api/v1/forms", formRouter)
 app.use("/api/v1/services", serviceRouter)
 app.use("/api/v1/stats", statsRouter)
+app.use("/api/v1/careers", careerRouter)
 
 app.get("/", (req, res) => {
     res.send("Welcome to DeveloperTag Backend API")

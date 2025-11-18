@@ -13,9 +13,22 @@ export const errorHandler = (err, req, res, next) => {
     const message = isKnown ? err.message : "Internal Server Error";
     const errors = isKnown ? err.errors : [];
 
-    if (process.env.NODE_ENV !== "production") {
-        console.error("[ERROR]", err);
-    }
+    console.error("=".repeat(80));
+    console.error("❌ [ERROR HANDLER] Error caught");
+    console.error("❌ [ERROR HANDLER] Request:", {
+        method: req.method,
+        url: req.url,
+        path: req.path,
+        originalUrl: req.originalUrl
+    });
+    console.error("❌ [ERROR HANDLER] Error details:", {
+        name: err.name,
+        message: err.message,
+        statusCode: statusCode,
+        isKnown: isKnown,
+        stack: err.stack
+    });
+    console.error("=".repeat(80));
 
     const payload = new ApiResponse(statusCode, { errors }, message);
     return res.status(statusCode).json(payload);

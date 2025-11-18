@@ -11,7 +11,7 @@ import {
     getTotalPortfolios 
 } from "../controllers/portfolio.controller.js";
 import { verifyJWT, authorizeRoles } from "../middlewares/auth.middleware.js";
-import { upload } from "../middlewares/multer.middleware.js";
+import { upload, logMulterResult } from "../middlewares/multer.middleware.js";
 
 const router = Router();
 
@@ -26,11 +26,29 @@ router.route("/public/:id").get(getPortfolioById); // Get single portfolio by ID
 router.route("/")
     .get(verifyJWT, authorizeRoles("admin"), getPortfolios)
     .post(
+        (req, res, next) => {
+            console.log("🔵 [ROUTE] POST /portfolio route hit");
+            console.log("🔵 [ROUTE] Request headers:", {
+                'content-type': req.headers['content-type'],
+                'content-length': req.headers['content-length'],
+                'authorization': req.headers['authorization'] ? 'present' : 'missing'
+            });
+            next();
+        },
         verifyJWT,
+        (req, res, next) => {
+            console.log("🔵 [ROUTE] JWT verification passed");
+            next();
+        },
         authorizeRoles("admin"),
+        (req, res, next) => {
+            console.log("🔵 [ROUTE] Admin authorization passed");
+            next();
+        },
         upload.fields([
             { name: "image", maxCount: 1 },
         ]),
+        logMulterResult,
         addPortfolio
     );
 

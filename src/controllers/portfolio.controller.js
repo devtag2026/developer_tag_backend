@@ -6,32 +6,95 @@ import { uploadOnCloudinary } from "../utils/cloudinary.js";
 
 // ----------- Add Portfolio Project --------------
 export const addPortfolio = asyncHandler(async (req, res) => {
+    console.log("=".repeat(80));
+    console.log("📝 [PORTFOLIO CREATE] Request received");
+    console.log("=".repeat(80));
+    
     const { name, description, cost, url, category, featured, displayOrder } = req.body;
+    
+    console.log("📋 [PORTFOLIO CREATE] Request body:", {
+        name: name?.substring(0, 50) || "missing",
+        description: description?.substring(0, 50) || "missing",
+        cost: cost || "missing",
+        url: url || "missing",
+        category: category || "missing",
+        featured: featured,
+        displayOrder: displayOrder
+    });
 
     // Validate required fields
     if (!name || !description || !cost || !url || !category) {
+        console.error("❌ [PORTFOLIO CREATE] Validation failed - Missing required fields");
         throw new ApiError(400, "Missing required fields: name, description, cost, url, category");
     }
+    console.log("✅ [PORTFOLIO CREATE] Field validation passed");
 
     // Process image upload - only file uploads are accepted
     let imageUrl = null;
     
+    console.log("📸 [PORTFOLIO CREATE] Checking for image file...");
+    console.log("📸 [PORTFOLIO CREATE] req.files:", req.files ? Object.keys(req.files) : "undefined");
+    console.log("📸 [PORTFOLIO CREATE] req.files?.image:", req.files?.image ? "exists" : "undefined");
+    console.log("📸 [PORTFOLIO CREATE] req.files?.image?.[0]:", req.files?.image?.[0] ? "exists" : "undefined");
+    
     if (req.files?.image?.[0]) {
         const imageFile = req.files.image[0];
-        const imageUpload = await uploadOnCloudinary(imageFile.path);
+        console.log("📸 [PORTFOLIO CREATE] Image file found:", {
+            fieldname: imageFile.fieldname,
+            originalname: imageFile.originalname,
+            encoding: imageFile.encoding,
+            mimetype: imageFile.mimetype,
+            size: imageFile.size,
+            path: imageFile.path,
+            destination: imageFile.destination
+        });
         
-        if (!imageUpload || !imageUpload.url) {
-            throw new ApiError(500, "Failed to upload image to Cloudinary. Please check your Cloudinary configuration and server logs.");
+        console.log("☁️  [PORTFOLIO CREATE] Starting Cloudinary upload...");
+        console.log("☁️  [PORTFOLIO CREATE] File path:", imageFile.path);
+        
+        try {
+            const imageUpload = await uploadOnCloudinary(imageFile.path);
+            
+            console.log("☁️  [PORTFOLIO CREATE] Cloudinary upload response:", {
+                success: !!imageUpload,
+                hasUrl: !!imageUpload?.url,
+                url: imageUpload?.url ? imageUpload.url.substring(0, 100) + "..." : "none",
+                publicId: imageUpload?.public_id || "none",
+                format: imageUpload?.format || "none",
+                width: imageUpload?.width || "none",
+                height: imageUpload?.height || "none",
+                bytes: imageUpload?.bytes || "none"
+            });
+            
+            if (!imageUpload || !imageUpload.url) {
+                console.error("❌ [PORTFOLIO CREATE] Cloudinary upload failed - No URL returned");
+                console.error("❌ [PORTFOLIO CREATE] Upload response:", imageUpload);
+                throw new ApiError(500, "Failed to upload image to Cloudinary. Please check your Cloudinary configuration and server logs.");
+            }
+            
+            imageUrl = imageUpload.url;
+            console.log("✅ [PORTFOLIO CREATE] Image uploaded successfully to Cloudinary");
+            console.log("✅ [PORTFOLIO CREATE] Image URL:", imageUrl);
+        } catch (uploadError) {
+            console.error("❌ [PORTFOLIO CREATE] Cloudinary upload error:", {
+                message: uploadError.message,
+                stack: uploadError.stack,
+                name: uploadError.name
+            });
+            throw new ApiError(500, `Failed to upload image to Cloudinary: ${uploadError.message}`);
         }
-        
-        imageUrl = imageUpload.url;
+    } else {
+        console.warn("⚠️  [PORTFOLIO CREATE] No image file found in request");
+        console.warn("⚠️  [PORTFOLIO CREATE] req.files structure:", JSON.stringify(req.files, null, 2));
     }
 
     if (!imageUrl || imageUrl === '') {
+        console.error("❌ [PORTFOLIO CREATE] Image URL is missing or empty");
         throw new ApiError(400, "Image is required. Please provide an image file.");
     }
 
     // Create new portfolio project
+    console.log("💾 [PORTFOLIO CREATE] Creating portfolio document in database...");
     const newPortfolio = new Portfolio({
         name,
         description,
@@ -42,11 +105,37 @@ export const addPortfolio = asyncHandler(async (req, res) => {
         featured: featured || false,
         displayOrder: displayOrder || 0,
     });
+    
+    console.log("💾 [PORTFOLIO CREATE] Portfolio document created:", {
+        name: newPortfolio.name,
+        category: newPortfolio.category,
+        image: newPortfolio.image?.substring(0, 50) + "...",
+        featured: newPortfolio.featured,
+        displayOrder: newPortfolio.displayOrder
+    });
 
-    const savedPortfolio = await newPortfolio.save();
-    return res
-        .status(201)
-        .json(new ApiResponse(201, savedPortfolio, "Portfolio project added successfully"));
+    try {
+        const savedPortfolio = await newPortfolio.save();
+        console.log("✅ [PORTFOLIO CREATE] Portfolio saved successfully");
+        console.log("✅ [PORTFOLIO CREATE] Saved portfolio ID:", savedPortfolio._id);
+        console.log("=".repeat(80));
+        console.log("✅ [PORTFOLIO CREATE] Request completed successfully");
+        console.log("=".repeat(80));
+        
+        return res
+            .status(201)
+            .json(new ApiResponse(201, savedPortfolio, "Portfolio project added successfully"));
+    } catch (saveError) {
+        console.error("❌ [PORTFOLIO CREATE] Database save error:", {
+            message: saveError.message,
+            stack: saveError.stack,
+            name: saveError.name,
+            code: saveError.code,
+            keyPattern: saveError.keyPattern,
+            keyValue: saveError.keyValue
+        });
+        throw saveError;
+    }
 });
 
 // ----------- Update Portfolio Project --------------

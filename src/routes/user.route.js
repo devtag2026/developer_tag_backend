@@ -6,7 +6,6 @@ import { verifyJWT, authorizeRoles } from "../middlewares/auth.middleware.js";
 
 const router = Router()
 
-
 // --All Routes for User--
 
 router.route("/register").post(
@@ -15,7 +14,6 @@ router.route("/register").post(
             name: "avatar",
             maxCount: 1
         },
-
     ]),
     registerUser
 )

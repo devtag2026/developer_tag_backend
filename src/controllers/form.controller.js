@@ -68,6 +68,39 @@ const submitQuestion = asyncHandler(async (req, res) => {
     );
 });
 
+const submitContact = asyncHandler(async (req, res) => {
+    const { firstName, lastName, email, phoneNumber, message } = req.body;
+
+    // Combine first and last name
+    const name = `${firstName} ${lastName}`.trim();
+
+    const formSubmission = await FormSubmission.create({
+        name,
+        email,
+        description: message,
+        phoneNumber: phoneNumber || undefined,
+        formType: "Contact Us"
+    });
+
+    // Send email notifications (non-blocking)
+    Promise.all([
+        sendFormSubmissionEmail({
+            name,
+            email,
+            formType: "Contact Us",
+            description: message,
+            phoneNumber: phoneNumber || undefined
+        }),
+        sendUserConfirmationEmail(email, "Contact Us", name)
+    ]).catch(error => {
+        console.error('Error sending emails:', error);
+    });
+
+    return res.status(201).json(
+        new ApiResponse(201, formSubmission, "Contact form submitted successfully")
+    );
+});
+
 
 //Admin only
 const getAllFormSubmissions = asyncHandler(async (req, res) => {
@@ -120,11 +153,13 @@ const getFormStatistics = asyncHandler(async (req, res) => {
     const totalSubmissions = await FormSubmission.countDocuments();
     const serviceRequests = await FormSubmission.countDocuments({ formType: "Request a Service" });
     const questions = await FormSubmission.countDocuments({ formType: "Ask a Question" });
+    const contactSubmissions = await FormSubmission.countDocuments({ formType: "Contact Us" });
 
     const statistics = {
         totalSubmissions,
         serviceRequests,
         questions,
+        contactSubmissions,
     };
 
     return res.status(200).json(
@@ -135,6 +170,7 @@ const getFormStatistics = asyncHandler(async (req, res) => {
 export {
     submitServiceRequest,
     submitQuestion,
+    submitContact,
     getAllFormSubmissions,
     getFormStatistics,
 };

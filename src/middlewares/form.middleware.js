@@ -36,4 +36,24 @@ export const validateQuestion = (req, res, next) => {
     next();
 };
 
+export const validateContact = (req, res, next) => {
+    const { firstName, lastName, email, phoneNumber, message } = req.body;
+
+    validateRequiredFields(["firstName", "lastName", "email", "message"], req.body);
+
+    if (!validateEmail(email)) {
+        throw new ApiError(400, "Invalid email format");
+    }
+
+    // Phone number is optional but if provided, should be valid format
+    if (phoneNumber && phoneNumber.trim() !== "") {
+        const phoneRegex = /^[\+]?[(]?[0-9]{1,4}[)]?[-\s\.]?[(]?[0-9]{1,4}[)]?[-\s\.]?[0-9]{1,9}$/;
+        if (!phoneRegex.test(phoneNumber.trim())) {
+            throw new ApiError(400, "Invalid phone number format");
+        }
+    }
+
+    next();
+};
+
 

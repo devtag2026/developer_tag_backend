@@ -18,6 +18,7 @@ export const SERVICE_TYPES = [
 export const FORM_TYPES = [
     'Request a Service',
     'Ask a Question',
+    'Contact Us',
 ];
 
 
@@ -55,6 +56,11 @@ const formSubmissionSchema = new Schema(
             type: String,
             trim: true,
             maxlength: [100, 'Engagement type cannot exceed 100 characters']
+        },
+        phoneNumber: {
+            type: String,
+            trim: true,
+            maxlength: [20, 'Phone number cannot exceed 20 characters']
         },
         formType: {
             type: String,

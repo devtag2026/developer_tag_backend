@@ -15,10 +15,11 @@ const getResendClient = () => {
 
 // Email templates
 const createFormSubmissionEmail = (formData) => {
-    const { name, email, formType, serviceType, description } = formData;
+    const { name, email, formType, serviceType, description, phoneNumber } = formData;
 
     let subject = '';
     let serviceInfo = '';
+    let phoneInfo = '';
 
     switch (formType) {
         case 'Request a Service':
@@ -32,6 +33,17 @@ const createFormSubmissionEmail = (formData) => {
             break;
         case 'Ask a Question':
             subject = `New Question from ${name}`;
+            break;
+        case 'Contact Us':
+            subject = `New Contact Form Submission from ${name}`;
+            if (phoneNumber) {
+                phoneInfo = `
+                    <tr>
+                        <td><strong>Phone Number:</strong></td>
+                        <td>${phoneNumber}</td>
+                    </tr>
+                `;
+            }
             break;
 
         default:
@@ -78,8 +90,9 @@ const createFormSubmissionEmail = (formData) => {
                                 <td>${formType}</td>
                             </tr>
                             ${serviceInfo}
+                            ${phoneInfo}
                             <tr>
-                                <td><strong>Description:</strong></td>
+                                <td><strong>${formType === 'Contact Us' ? 'Message' : 'Description'}:</strong></td>
                                 <td>${description}</td>
                             </tr>
                             <tr>

@@ -8,7 +8,7 @@ const app = express();
 app.disable("x-powered-by")
 
 // CORS configuration: support comma-separated origins or "*"
-const corsEnv = process.env.CORS_ORIGINS || "http://localhost:3000,http://localhost:3001,https://developertag.com,https://www.developertag.com,https://admin.developertag.com,https://developer-tag-admin.vercel.app/";
+const corsEnv = "http://localhost:3000,http://localhost:3001,https://developertag.com,https://www.developertag.com,https://admin.developertag.com,https://developer-tag-admin.vercel.app/";
 const allowedOrigins = corsEnv.split(",").map((o) => o.trim().replace(/\/$/, "")).filter(Boolean);
 
 app.use(cors({

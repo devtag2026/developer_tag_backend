@@ -2,14 +2,6 @@ import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
 import { envConfig } from "../config/env.config.js";
 
-// Log Cloudinary configuration on module load
-console.log("☁️  [CLOUDINARY INIT] Initializing Cloudinary configuration...");
-console.log("☁️  [CLOUDINARY INIT] Environment variables:", {
-    cloudinaryName: envConfig.cloudinaryName ? `${envConfig.cloudinaryName.substring(0, 4)}...` : "MISSING",
-    cloudinaryApiKey: envConfig.cloudinaryApiKey ? `${envConfig.cloudinaryApiKey.substring(0, 4)}...` : "MISSING",
-    cloudinaryApiSecret: envConfig.cloudinaryApiSecret ? "SET" : "MISSING"
-});
-
 cloudinary.config({
     cloud_name: envConfig.cloudinaryName,
     api_key: envConfig.cloudinaryApiKey,
@@ -19,7 +11,7 @@ cloudinary.config({
 // Verify configuration after setting
 const config = cloudinary.config();
 if (config.cloud_name && config.api_key && config.api_secret) {
-    console.log("✅ [CLOUDINARY INIT] Configuration loaded successfully");
+    console.log("Cloudinary connected successfully");
 } else {
     console.error("❌ [CLOUDINARY INIT] Configuration incomplete - check environment variables");
     console.error("❌ [CLOUDINARY INIT] Missing:", {

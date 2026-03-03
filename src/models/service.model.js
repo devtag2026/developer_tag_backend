@@ -65,8 +65,7 @@ const serviceSchema = new Schema(
     }
 );
 
-// Indexes for better query performance
-serviceSchema.index({ slug: 1 });
+// slug index already created by unique: true above; only add category index
 serviceSchema.index({ category: 1 });
 
 // Virtual for full service URL

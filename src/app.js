@@ -1,3 +1,4 @@
+import "dotenv/config"
 import express from "express"
 import cors from "cors"
 import cookieParser from "cookie-parser"
@@ -7,36 +8,30 @@ const app = express();
 
 app.disable("x-powered-by")
 
-// CORS configuration: support comma-separated origins or "*"
-const corsEnv = "http://localhost:3000,http://localhost:3001,https://developertag.com,https://www.developertag.com,https://admin.developertag.com,https://developer-tag-admin.vercel.app/";
-const allowedOrigins = corsEnv.split(",").map((o) => o.trim().replace(/\/$/, "")).filter(Boolean);
+// CORS: read from env (CORS_ORIGIN or CORS_ORIGINS), fallback to default list
+const corsEnv = (process.env.CORS_ORIGIN || process.env.CORS_ORIGINS || "http://localhost:3000,http://localhost:3001,https://developertag.com,https://www.developertag.com,https://admin.developertag.com,https://developer-tag-admin.vercel.app").trim();
+const allowAllOrigins = corsEnv === "*";
+const allowedOrigins = allowAllOrigins ? [] : corsEnv.split(",").map((o) => o.trim().replace(/\/$/, "")).filter(Boolean);
 
 app.use(cors({
     origin: (origin, callback) => {
-        // Allow requests with no origin (like mobile apps, Postman, etc.)
+        // Allow requests with no origin (Postman, mobile apps, server-to-server)
         if (!origin) return callback(null, true);
-        
-        // Allow all origins if CORS_ORIGINS is "*"
-        if (corsEnv === "*") {
-            return callback(null, true);
-        }
-        
-        // Normalize origin by removing trailing slash for comparison
+        // Allow all origins when CORS_ORIGIN=* (reflect origin for credentials)
+        if (allowAllOrigins) return callback(null, origin);
         const normalizedOrigin = origin.replace(/\/$/, "");
-        
-        // Check if origin is in allowed list (with or without trailing slash)
         if (allowedOrigins.includes(normalizedOrigin) || allowedOrigins.includes(origin)) {
             return callback(null, true);
         }
-        
-        console.log(`CORS blocked origin: ${origin} (normalized: ${normalizedOrigin})`);
-        console.log(`Allowed origins: ${allowedOrigins.join(", ")}`);
-        return callback(new Error("Not allowed by CORS"));
+        console.log(`CORS blocked origin: ${origin} | Allowed: ${allowedOrigins.join(", ")}`);
+        return callback(null, false);
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
-    exposedHeaders: ["Content-Range", "X-Content-Range"]
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
+    exposedHeaders: ["Content-Range", "X-Content-Range"],
+    optionsSuccessStatus: 204,
+    preflightContinue: false
 }))
 
 app.use(express.json({ limit: "16kb" }))

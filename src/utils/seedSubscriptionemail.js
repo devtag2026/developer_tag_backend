@@ -63,16 +63,16 @@ const run = async () => {
     const template = process.env.TEMPLATE?.toLowerCase();
 
     console.log("=".repeat(60));
-    console.log("📧  Subscription Email Seed Script");
+    console.log("Subscription Email Seed Script");
     console.log("=".repeat(60));
 
     if (!process.env.RESEND_API_KEY) {
-        console.error("❌  RESEND_API_KEY is not set. Aborting.");
+        console.error("RESEND_API_KEY is not set. Aborting.");
         process.exit(1);
     }
 
     const target = TEST_CLIENT.clientEmail;
-    console.log(`📬  Sending test emails to: ${target}\n`);
+    console.log(`Sending test emails to: ${target}\n`);
 
     const tasks = [
         {
@@ -102,25 +102,25 @@ const run = async () => {
         : tasks;
 
     if (toRun.length === 0) {
-        console.error(`❌  Unknown template: "${template}". Valid options: invitation, confirmation, failed, receipt`);
+        console.error(`Unknown template: "${template}". Valid options: invitation, confirmation, failed, receipt`);
         process.exit(1);
     }
 
     for (const task of toRun) {
         try {
-            console.log(`🚀  Sending: ${task.label}...`);
+            console.log(`Sending: ${task.label}...`);
             await task.fn();
-            console.log(`✅  Sent:    ${task.label}\n`);
+            console.log(`Sent:    ${task.label}\n`);
             // Small delay between sends to avoid rate limiting
             await delay(800);
         } catch (err) {
-            console.error(`❌  Failed:  ${task.label}`);
-            console.error(`    Reason:  ${err.message}\n`);
+            console.error(`Failed:  ${task.label}`);
+            console.error(`Reason:  ${err.message}\n`);
         }
     }
 
     console.log("=".repeat(60));
-    console.log("✅  Email seed complete. Check your inbox.");
+    console.log(" Email seed complete. Check your inbox.");
     console.log("=".repeat(60));
     process.exit(0);
 };

@@ -1,4 +1,5 @@
 import mongoose, { Schema } from "mongoose";
+import { EMAIL, VALIDATION_PATTERNS } from "../constant/validations/pattern";
 
 const contractSchema = new Schema(
     {
@@ -20,7 +21,7 @@ const contractSchema = new Schema(
             required: [true, "Client email is required"],
             trim: true,
             lowercase: true,
-            match: [/.+\@.+\..+/, "Please provide a valid email address"],
+            match: [EMAIL.regex,EMAIL.message],
         },
 
         // Contract Financials

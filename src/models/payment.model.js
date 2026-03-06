@@ -1,4 +1,5 @@
 import mongoose, { Schema } from "mongoose";
+import { PaymentStatus } from "../constant/enums";
 
 const paymentSchema = new Schema(
     {
@@ -48,7 +49,7 @@ const paymentSchema = new Schema(
         // Status
         status: {
             type: String,
-            enum: ["pending", "succeeded", "failed", "refunded", "cancelled"],
+            enum: Object.values(PaymentStatus),
             default: "pending",
         },
 

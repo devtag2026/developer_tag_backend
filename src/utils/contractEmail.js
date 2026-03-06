@@ -1,21 +1,33 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
+import { ApiError } from "./apiError.js";
+import { PAYMENT_TERMS_LABEL } from "../constant/enums.js";
+// ─── Lazy SMTP transporter ────────────────────────────────────────────────────
+let transporter = null;
 
-let resend = null;
-
-const getResendClient = () => {
-    if (!resend) {
-        if (!process.env.RESEND_API_KEY) {
-            throw new Error("RESEND_API_KEY environment variable is not set");
+const getTransporter = () => {
+    if (!transporter) {
+        if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+            throw new ApiError(500, "SMTP configuration is missing. Please set SMTP_HOST, SMTP_USER, and SMTP_PASS in your .env file.");
         }
-        resend = new Resend(process.env.RESEND_API_KEY);
+
+        transporter = nodemailer.createTransport({
+            host:   process.env.SMTP_HOST,
+            port:   Number(process.env.SMTP_PORT) || 587,
+            secure: process.env.SMTP_SECURE === "true", // true for port 465
+            auth: {
+                user: process.env.SMTP_USER,
+                pass: process.env.SMTP_PASS,
+            },
+        });
     }
-    return resend;
+
+    return transporter;
 };
 
 const FROM_EMAIL  = process.env.FROM_EMAIL  || "noreply@developertag.com";
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@developertag.com";
 
-// ─── Shared HTML shell (matches subscriptionEmail.js branding) ───────────────
+// ─── Shared HTML shell ────────────────────────────────────────────────────────
 const emailShell = (accentColor = "#13a87c", headerTitle, headerSub, body) => `
 <!DOCTYPE html>
 <html>
@@ -31,9 +43,9 @@ const emailShell = (accentColor = "#13a87c", headerTitle, headerSub, body) => `
     .info-table { width:100%; border-collapse:collapse; margin:18px 0; }
     .info-table td { padding:10px 8px; border-bottom:1px solid #eee; font-size:14px; vertical-align:top; }
     .info-table td:first-child { font-weight:bold; width:38%; color:#555; }
-    .btn-row { margin-top:24px; display:flex; gap:12px; flex-wrap:wrap; }
-    .btn { display:inline-block; padding:12px 24px; color:#fff; text-decoration:none; border-radius:6px; font-size:14px; font-weight:bold; }
-    .btn-primary  { background:${accentColor}; }
+    .btn-row { margin-top:24px; }
+    .btn { display:inline-block; padding:12px 24px; color:#fff; text-decoration:none; border-radius:6px; font-size:14px; font-weight:bold; margin-right:10px; margin-bottom:10px; }
+    .btn-primary   { background:${accentColor}; }
     .btn-secondary { background:#2b6cb0; }
     .divider { border:none; border-top:1px solid #eee; margin:24px 0; }
     .note { margin-top:18px; padding:14px; background:#f9f9f9; border-left:4px solid ${accentColor}; font-size:13px; color:#555; border-radius:0 4px 4px 0; }
@@ -52,7 +64,7 @@ const emailShell = (accentColor = "#13a87c", headerTitle, headerSub, body) => `
 </body>
 </html>`;
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 const formatDate = (date) =>
     date
         ? new Date(date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
@@ -61,17 +73,30 @@ const formatDate = (date) =>
 const formatCurrency = (amount, currency = "usd") =>
     `${currency.toUpperCase()} $${Number(amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}`;
 
-const PAYMENT_TERMS_LABEL = {
-    "milestone":      "Milestone-Based",
-    "final-payment":  "Final Payment",
-    "upfront":        "Upfront / Full Payment",
-    "installments":   "Installments",
+
+
+// ─── Core send function ───────────────────────────────────────────────────────
+const sendEmail = async (to, subject, html, tag) => {
+    const mailer = getTransporter(); // throws ApiError if misconfigured
+
+    try {
+        const info = await mailer.sendMail({
+            from:    `"DeveloperTag" <${FROM_EMAIL}>`,
+            to,
+            subject,
+            html,
+        });
+        console.log(`[ContractEmail] Sent ${tag}: ${info.messageId}`);
+    } catch (err) {
+        throw new ApiError(500, `Failed to send ${tag} email: ${err.message}`);
+    }
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 1. CONTRACT SHARING EMAIL (sent to client)
-//    Includes: contract summary, view/sign link, optional advance payment link
+// EMAIL BUILDERS
 // ─────────────────────────────────────────────────────────────────────────────
+
+// 1. Contract sharing email (client)
 const buildContractEmail = ({
     clientName,
     projectName,
@@ -93,8 +118,8 @@ const buildContractEmail = ({
     const paymentSection = paymentLink
         ? `
         <hr class="divider">
-        <p><strong>Advance Payment</strong></p>
-        <p>An advance payment of <strong>${formatCurrency(advanceAmount, currency)}</strong> is required to activate this contract. You can pay securely using the button below.</p>
+        <p><strong>Advance Payment Required</strong></p>
+        <p>An advance of <strong>${formatCurrency(advanceAmount, currency)}</strong> is required to activate this contract.</p>
         <div class="btn-row">
           <a href="${contractViewUrl}" class="btn btn-primary">View &amp; Sign Contract →</a>
           <a href="${paymentLink}"     class="btn btn-secondary">Pay Advance Now →</a>
@@ -110,8 +135,7 @@ const buildContractEmail = ({
         `Project: ${projectName}`,
         `
         <p>Hi <strong>${clientName}</strong>,</p>
-        <p>DeveloperTag has prepared a contract for your upcoming project. Please review the details below and sign the contract at your earliest convenience.</p>
-
+        <p>DeveloperTag has prepared a contract for your upcoming project. Please review the details below and sign at your earliest convenience.</p>
         <table class="info-table">
           <tr><td>Project</td><td>${projectName}</td></tr>
           <tr><td>Contract Value</td><td>${formatCurrency(contractAmount, currency)}</td></tr>
@@ -120,23 +144,17 @@ const buildContractEmail = ({
           <tr><td>Start Date</td><td>${formatDate(startDate)}</td></tr>
           <tr><td>End Date</td><td>${formatDate(endDate)}</td></tr>
         </table>
-
         ${paymentSection}
-
         <div class="note">
-          📄 Once the contract is signed${advanceAmount > 0 ? " and the advance payment is received" : ""}, your project will be officially activated. If you have any questions, contact us at <a href="mailto:${ADMIN_EMAIL}">${ADMIN_EMAIL}</a>.
-        </div>
-        `
+         Once signed${advanceAmount > 0 ? " and the advance is received" : ""}, your project will be officially activated. Questions? Contact us at <a href="mailto:${ADMIN_EMAIL}">${ADMIN_EMAIL}</a>.
+        </div>`
     );
 
     return { subject, html };
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 2. ADMIN NOTIFICATION EMAIL
-//    Sent to admin when a contract is dispatched to a client
-// ─────────────────────────────────────────────────────────────────────────────
-const buildAdminContractNotificationEmail = ({
+// 2. Admin notification (when contract is sent)
+const buildAdminNotificationEmail = ({
     clientName,
     clientEmail,
     projectName,
@@ -158,16 +176,13 @@ const buildAdminContractNotificationEmail = ({
           <tr><td>Contract Value</td><td>${formatCurrency(contractAmount, currency)}</td></tr>
           <tr><td>Payment Terms</td><td>${PAYMENT_TERMS_LABEL[paymentTerms] || paymentTerms}</td></tr>
           <tr><td>Sent At</td><td>${new Date().toLocaleString()}</td></tr>
-        </table>
-        `
+        </table>`
     );
 
     return { subject, html };
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 3. CONTRACT SIGNED CONFIRMATION (sent to client after signing)
-// ─────────────────────────────────────────────────────────────────────────────
+// 3. Contract signed confirmation (client)
 const buildContractSignedEmail = ({
     clientName,
     projectName,
@@ -180,12 +195,11 @@ const buildContractSignedEmail = ({
 
     const html = emailShell(
         "#13a87c",
-        "Contract Signed Successfully ✅",
+        "Contract Signed Successfully",
         `Project: ${projectName}`,
         `
         <p>Hi <strong>${clientName}</strong>,</p>
         <p>Thank you for signing the contract for <strong>${projectName}</strong>. Here is a summary for your records:</p>
-
         <table class="info-table">
           <tr><td>Project</td><td>${projectName}</td></tr>
           <tr><td>Contract Value</td><td>${formatCurrency(contractAmount, currency)}</td></tr>
@@ -193,21 +207,16 @@ const buildContractSignedEmail = ({
           <tr><td>End Date</td><td>${formatDate(endDate)}</td></tr>
           <tr><td>Signed At</td><td>${new Date().toLocaleString()}</td></tr>
         </table>
-
-        <p>Our team will now begin project preparations. We'll be in touch shortly with next steps.</p>
-
+        <p>Our team will begin project preparations shortly and will be in touch with next steps.</p>
         <div class="note">
-          If you have any questions or concerns, please contact us at <a href="mailto:${ADMIN_EMAIL}">${ADMIN_EMAIL}</a>.
-        </div>
-        `
+          Questions? Reach us at <a href="mailto:${ADMIN_EMAIL}">${ADMIN_EMAIL}</a>.
+        </div>`
     );
 
     return { subject, html };
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 4. CONTRACT ADVANCE PAYMENT CONFIRMATION (sent to client after advance paid)
-// ─────────────────────────────────────────────────────────────────────────────
+// 4. Advance payment confirmation (client)
 const buildContractPaymentConfirmationEmail = ({
     clientName,
     projectName,
@@ -218,67 +227,50 @@ const buildContractPaymentConfirmationEmail = ({
 
     const html = emailShell(
         "#13a87c",
-        "Advance Payment Received 🎉",
+        "Advance Payment Received",
         `Project: ${projectName}`,
         `
         <p>Hi <strong>${clientName}</strong>,</p>
         <p>We have successfully received your advance payment for <strong>${projectName}</strong>. Your project is now officially activated!</p>
-
         <table class="info-table">
           <tr><td>Project</td><td>${projectName}</td></tr>
           <tr><td>Amount Received</td><td>${formatCurrency(advanceAmount, currency)}</td></tr>
           <tr><td>Received At</td><td>${new Date().toLocaleString()}</td></tr>
         </table>
-
-        <p>Our team is excited to get started. You will receive a project kickoff communication from us very soon.</p>
-
+        <p>Our team is excited to get started. A project kickoff communication is on its way.</p>
         <div class="note">
-          Keep this email as your payment confirmation. For any queries, reach us at <a href="mailto:${ADMIN_EMAIL}">${ADMIN_EMAIL}</a>.
-        </div>
-        `
+          Keep this email as your payment confirmation. Queries? <a href="mailto:${ADMIN_EMAIL}">${ADMIN_EMAIL}</a>.
+        </div>`
     );
 
     return { subject, html };
 };
 
-// ─── Send helper ─────────────────────────────────────────────────────────────
-const send = async (to, subject, html, tag) => {
-    try {
-        if (!process.env.RESEND_API_KEY) {
-            console.warn(`[ContractEmail] RESEND_API_KEY not set. Skipping: ${tag}`);
-            return;
-        }
-        const { data, error } = await getResendClient().emails.send({ from: FROM_EMAIL, to, subject, html });
-        if (error) {
-            console.error(`[ContractEmail] Failed to send ${tag}:`, error);
-            return;
-        }
-        console.log(`[ContractEmail] Sent ${tag}:`, data?.id);
-    } catch (err) {
-        console.error(`[ContractEmail] Exception sending ${tag}:`, err.message);
-    }
-};
+// ─────────────────────────────────────────────────────────────────────────────
+// EXPORTED SEND FUNCTIONS
+// All throw ApiError on failure so asyncHandler catches and forwards them.
+// ─────────────────────────────────────────────────────────────────────────────
 
-// ─── Exported send functions ──────────────────────────────────────────────────
-
-// Called in contract.controller.js → sendContract()
+// Called in contract.controller.js → sendContract() / resendContract()
 export const sendContractEmail = async (data) => {
     const { subject, html } = buildContractEmail(data);
-    await send(data.clientEmail, subject, html, "contract-sharing");
+    await sendEmail(data.clientEmail, subject, html, "contract-sharing");
 
-    // Notify admin (non-blocking)
-    const { subject: aSubject, html: aHtml } = buildAdminContractNotificationEmail(data);
-    send(ADMIN_EMAIL, aSubject, aHtml, "admin-contract-notification").catch(() => {});
+    // Admin notification — non-blocking, failure should not block the response
+    const { subject: aSubject, html: aHtml } = buildAdminNotificationEmail(data);
+    sendEmail(ADMIN_EMAIL, aSubject, aHtml, "admin-contract-notification").catch(
+        (err) => console.error("[ContractEmail] Admin notification failed:", err.message)
+    );
 };
 
-// Called when client signs the contract (Day 6 — client-facing page)
+// Called when client signs via client-facing page (Day 6)
 export const sendContractSignedEmail = async (data) => {
     const { subject, html } = buildContractSignedEmail(data);
-    await send(data.clientEmail, subject, html, "contract-signed");
+    await sendEmail(data.clientEmail, subject, html, "contract-signed");
 };
 
-// Called after Stripe payment intent succeeds for contract advance (Day 3/6)
+// Called after Stripe confirms advance payment (webhook / Day 6)
 export const sendContractPaymentConfirmationEmail = async (data) => {
     const { subject, html } = buildContractPaymentConfirmationEmail(data);
-    await send(data.clientEmail, subject, html, "contract-payment-confirmation");
+    await sendEmail(data.clientEmail, subject, html, "contract-payment-confirmation");
 };

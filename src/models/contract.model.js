@@ -1,5 +1,5 @@
 import mongoose, { Schema } from "mongoose";
-import { EMAIL, VALIDATION_PATTERNS } from "../constant/validations/pattern";
+import { EMAIL } from "../constant/validations/pattern.js";
 
 const contractSchema = new Schema(
     {

@@ -92,4 +92,4 @@ Thumbs.db
 
 # Public temp files
 public/temp/
-config.bat
+.env

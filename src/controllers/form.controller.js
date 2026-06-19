@@ -2,7 +2,7 @@ import FormSubmission, { SERVICE_TYPES } from '../models/form.model.js';
 import { ApiResponse } from '../utils/apiResponse.js';
 import { ApiError } from '../utils/apiError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
-import { sendFormSubmissionEmail, sendUserConfirmationEmail } from '../utils/resend.js';
+import { sendFormSubmissionEmail, sendUserConfirmationEmail } from '../utils/email.js';
 
 const submitServiceRequest = asyncHandler(async (req, res) => {
     const { name, email, serviceType, description, engagementType } = req.body;
@@ -69,7 +69,16 @@ const submitQuestion = asyncHandler(async (req, res) => {
 });
 
 const submitContact = asyncHandler(async (req, res) => {
-    const { firstName, lastName, email, phoneNumber, message } = req.body;
+    const {
+        firstName,
+        lastName,
+        email,
+        phoneNumber,
+        message,
+        projectGoal,
+        expertiseNeeded,
+        budget
+    } = req.body;
 
     // Combine first and last name
     const name = `${firstName} ${lastName}`.trim();
@@ -79,7 +88,10 @@ const submitContact = asyncHandler(async (req, res) => {
         email,
         description: message,
         phoneNumber: phoneNumber || undefined,
-        formType: "Contact Us"
+        formType: "Contact Us",
+        projectGoal: projectGoal || undefined,
+        expertiseNeeded: expertiseNeeded || undefined,
+        budget: budget || undefined
     });
 
     // Send email notifications (non-blocking)
@@ -89,7 +101,10 @@ const submitContact = asyncHandler(async (req, res) => {
             email,
             formType: "Contact Us",
             description: message,
-            phoneNumber: phoneNumber || undefined
+            phoneNumber: phoneNumber || undefined,
+            projectGoal: projectGoal || undefined,
+            expertiseNeeded: expertiseNeeded || undefined,
+            budget: budget || undefined
         }),
         sendUserConfirmationEmail(email, "Contact Us", name)
     ]).catch(error => {

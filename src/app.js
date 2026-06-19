@@ -2,7 +2,7 @@ import express from "express"
 import cors from "cors"
 import cookieParser from "cookie-parser"
 import { notFoundHandler, errorHandler } from "./middlewares/error.middleware.js"
-
+import proposalRoutes from "./routes/proposal.routes.js";
 const app = express();
 
 app.disable("x-powered-by")
@@ -46,6 +46,9 @@ app.use("/api/v1/subscriptions", subscriptionRouter)
 app.use("/api/v1/contracts", contractRouter)
 // app.use("/api/v1/invoices", invoiceRouter)
 // app.use("/api/v1/reminders", reminderRouter)
+
+
+app.use("/api/v1/proposals", proposalRoutes);
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get("/", (req, res) => {

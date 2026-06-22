@@ -8,7 +8,8 @@ import { paginate } from "../utils/pagination.js";
 import { getStripeClient } from "../config/stripe.js";
 import {
   sendContractEmail,
-  sendContractPaymentConfirmationEmail,
+  sendContractAcceptedEmail,
+  sendContractRejectedEmail,
 } from "../utils/contractEmail.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -20,13 +21,16 @@ export const createContract = asyncHandler(async (req, res) => {
     clientName,
     clientEmail,
     contractAmount,
-    advanceAmount,
     currency = "usd",
     startDate,
     endDate,
     paymentTerms,
+    serviceType,
+    revisions,
+    scopeOfWork,
     customClauses,
     notes,
+    milestones,
   } = req.body;
 
   if (
@@ -43,27 +47,75 @@ export const createContract = asyncHandler(async (req, res) => {
       "Missing required fields: projectName, clientName, clientEmail, contractAmount, startDate, endDate, paymentTerms",
     );
   }
-  if (new Date(endDate) <= new Date(startDate))
+
+  if (new Date(endDate) <= new Date(startDate)) {
     throw new ApiError(400, "End date must be after start date");
-  if (advanceAmount != null && advanceAmount > contractAmount)
+  }
+
+  // ── Milestone validation ──────────────────────────────
+  if (!Array.isArray(milestones) || milestones.length === 0) {
+    throw new ApiError(400, "At least one milestone is required");
+  }
+
+  let milestonesTotal = 0;
+  const normalizedMilestones = milestones.map((m, index) => {
+    if (!m.title || typeof m.title !== "string") {
+      throw new ApiError(400, `Milestone ${index + 1} is missing a title`);
+    }
+    const amount = Number(m.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new ApiError(
+        400,
+        `Milestone ${index + 1} must have an amount greater than 0`,
+      );
+    }
+    if (m.dueDate && new Date(m.dueDate) < new Date(startDate)) {
+      throw new ApiError(
+        400,
+        `Milestone ${index + 1} due date cannot be before the contract start date`,
+      );
+    }
+
+    milestonesTotal += amount;
+
+    return {
+      title: m.title.trim(),
+      description: m.description?.trim() || "",
+      amount,
+      dueDate: m.dueDate || undefined,
+      order: index,
+      status: "pending_payment",
+    };
+  });
+
+  // Server-side source of truth: milestones must sum exactly to contractAmount.
+  // Never trust client-side sums for money — the modal's own balance check
+  // is a UX convenience, not a security boundary.
+  const amountDiff = Math.abs(milestonesTotal - Number(contractAmount));
+  if (amountDiff > 0.01) {
     throw new ApiError(
       400,
-      "Advance amount cannot exceed the total contract amount",
+      `Milestone amounts ($${milestonesTotal.toFixed(2)}) must add up to the contract amount ($${Number(contractAmount).toFixed(2)})`,
     );
+  }
 
   const contract = await Contract.create({
     projectName,
     clientName,
     clientEmail,
+    serviceType,
     contractAmount,
-    advanceAmount: advanceAmount || 0,
     currency,
     startDate,
     endDate,
     paymentTerms,
+    revisions,
+    scopeOfWork,
     customClauses,
     notes,
-    status: "pending",
+    milestones: normalizedMilestones,
+    currentMilestoneIndex: 0,
+    status: "draft",
   });
 
   return res
@@ -186,38 +238,145 @@ export const updateContractStatus = asyncHandler(async (req, res) => {
 // 5. SEND CONTRACT
 // ─────────────────────────────────────────────────────────────────────────────
 export const sendContract = asyncHandler(async (req, res) => {
-  const contract = await Contract.findById(req.params.id);
-  if (!contract) throw new ApiError(404, "Contract not found");
-  if (contract.status === "cancelled")
-    throw new ApiError(400, "Cannot send a cancelled contract");
+  const { id } = req.params;
+  const contract = await Contract.findById(id);
+  if (!contract) {
+      throw new ApiError(404, "Contract not found");
+  }
 
-  const { contractViewUrl, paymentLink } = await _buildContractLinks(contract);
+  if (contract.status !== "draft") {
+      throw new ApiError(
+          400,
+          `Cannot send a contract with status "${contract.status}". Only draft contracts can be sent.`,
+      );
+  }
+
+  const acceptUrl = `${process.env.FRONTEND_URL}/contract/${contract.accessToken}?action=accept`;
+  const rejectUrl = `${process.env.FRONTEND_URL}/contract/${contract.accessToken}?action=reject`;
+
+  
+  await sendContractEmail({
+      clientName: contract.clientName,
+      clientEmail: contract.clientEmail,
+      projectName: contract.projectName,
+      contractAmount: contract.contractAmount,
+      milestones: contract.milestones,
+      currency: contract.currency,
+      startDate: contract.startDate,
+      endDate: contract.endDate,
+      paymentTerms: contract.paymentTerms,
+      acceptUrl,
+      rejectUrl,
+  });
+
+  contract.status = "pending";
   contract.sentAt = new Date();
   await contract.save();
 
-  await sendContractEmail({
-    clientName: contract.clientName,
-    clientEmail: contract.clientEmail,
-    projectName: contract.projectName,
-    contractAmount: contract.contractAmount,
-    advanceAmount: contract.advanceAmount,
-    currency: contract.currency,
-    startDate: contract.startDate,
-    endDate: contract.endDate,
-    paymentTerms: contract.paymentTerms,
-    contractViewUrl,
-    paymentLink,
-  });
+  return res
+      .status(200)
+      .json(new ApiResponse(200, contract, "Contract sent to client"));
+});
+
+/**
+ * Public contract preview for emailed client links (token-based, no JWT).
+ */
+export const getContractByToken = asyncHandler(async (req, res) => {
+  const { accessToken } = req.params;
+
+  const contract = await Contract.findOne({ accessToken }).select(
+    "-stripePaymentIntentId -accessToken",
+  );
+  if (!contract) {
+    throw new ApiError(404, "Invalid or expired contract link");
+  }
 
   return res
     .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        { contract, contractViewUrl, paymentLink },
-        "Contract sent to client successfully",
-      ),
-    );
+    .json(new ApiResponse(200, contract, "Contract fetched successfully"));
+});
+
+/**
+* Client accepts or rejects via the emailed link (no login — accessToken
+* is the auth). pending -> accepted | rejected
+*/
+export const respondToContract = asyncHandler(async (req, res) => {
+  const { accessToken } = req.params;
+  const { action, rejectionReason } = req.body; // "accept" | "reject"
+
+  if (!["accept", "reject"].includes(action)) {
+      throw new ApiError(400, "Action must be either 'accept' or 'reject'");
+  }
+
+  const contract = await Contract.findOne({ accessToken });
+  if (!contract) {
+      throw new ApiError(404, "Invalid or expired contract link");
+  }
+
+  const alreadyFinalized = ["active", "rejected", "completed", "cancelled"].includes(
+      contract.status,
+  );
+  const canRespond =
+      contract.status === "pending" ||
+      contract.status === "sent" ||
+      (contract.status === "draft" && contract.sentAt);
+
+  if (alreadyFinalized) {
+      throw new ApiError(
+          400,
+          `This contract has already been responded to (current status: "${contract.status}")`,
+      );
+  }
+
+  if (!canRespond) {
+      throw new ApiError(
+          400,
+          "This contract is not available for response yet. Please contact DeveloperTag if you believe this is an error.",
+      );
+  }
+
+  if (action === "accept") {
+      // "active" — contract enters its working/payment phase; milestone 1
+      // checkout becomes available next.
+      contract.status = "active";
+      contract.respondedAt = new Date();
+      await contract.save();
+
+      await sendContractAcceptedEmail({
+          clientName: contract.clientName,
+          clientEmail: contract.clientEmail,
+          projectName: contract.projectName,
+          contractAmount: contract.contractAmount,
+          milestones: contract.milestones,
+          currency: contract.currency,
+          startDate: contract.startDate,
+          endDate: contract.endDate,
+      });
+  } else {
+      contract.status = "rejected";
+      contract.rejectionReason = rejectionReason || "";
+      contract.respondedAt = new Date();
+      await contract.save();
+
+      await sendContractRejectedEmail({
+          clientName: contract.clientName,
+          clientEmail: contract.clientEmail,
+          projectName: contract.projectName,
+          rejectionReason: contract.rejectionReason,
+      });
+  }
+
+  return res
+      .status(200)
+      .json(
+          new ApiResponse(
+              200,
+              contract,
+              action === "accept"
+                  ? "Contract accepted successfully"
+                  : "Contract rejected",
+          ),
+      );
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -466,6 +625,111 @@ export const contractStripeWebhook = asyncHandler(async (req, res) => {
   }
 
   return res.status(200).json({ received: true });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 12. ACCEPT CONTRACT (ADMIN)
+// ─────────────────────────────────────────────────────────────────────────────
+export const acceptContract = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const contract = await Contract.findById(id);
+
+  if (!contract) {
+    throw new ApiError(404, "Contract not found");
+  }
+
+  if (contract.status === "active" || contract.status === "signed") {
+    throw new ApiError(400, "Contract is already accepted/signed");
+  }
+
+  if (contract.status === "cancelled") {
+    throw new ApiError(400, "Cannot accept a cancelled contract");
+  }
+
+  // Update contract status to signed
+  contract.status = "signed";
+  contract.signedAt = new Date();
+  await contract.save();
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, contract, "Contract accepted successfully"));
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 13. REJECT CONTRACT (ADMIN)
+// ─────────────────────────────────────────────────────────────────────────────
+export const rejectContract = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { rejectionReason } = req.body;
+
+  const contract = await Contract.findById(id);
+
+  if (!contract) {
+    throw new ApiError(404, "Contract not found");
+  }
+
+  if (contract.status === "rejected") {
+    throw new ApiError(400, "Contract is already rejected");
+  }
+
+  if (contract.status === "active" || contract.status === "signed" || contract.status === "paid") {
+    throw new ApiError(400, "Cannot reject an active/signed/paid contract");
+  }
+
+  // Update contract status to rejected
+  contract.status = "rejected";
+  contract.rejectionReason = rejectionReason || "Rejected by admin";
+  contract.respondedAt = new Date();
+  await contract.save();
+
+  // Send rejection email to client
+  await sendContractRejectedEmail({
+    clientName: contract.clientName,
+    clientEmail: contract.clientEmail,
+    projectName: contract.projectName,
+    rejectionReason: contract.rejectionReason,
+  });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, contract, "Contract rejected successfully"));
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 14. GET CONTRACT STATUS (ADMIN)
+// ─────────────────────────────────────────────────────────────────────────────
+export const getContractStatus = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const contract = await Contract.findById(id);
+
+  if (!contract) {
+    throw new ApiError(404, "Contract not found");
+  }
+
+  const statusInfo = {
+    id: contract._id,
+    projectName: contract.projectName,
+    clientName: contract.clientName,
+    clientEmail: contract.clientEmail,
+    status: contract.status,
+    contractAmount: contract.contractAmount,
+    currency: contract.currency,
+    signedAt: contract.signedAt || null,
+    paidAt: contract.paidAt || null,
+    sentAt: contract.sentAt || null,
+    respondedAt: contract.respondedAt || null,
+    createdAt: contract.createdAt,
+    updatedAt: contract.updatedAt,
+    currentMilestoneIndex: contract.currentMilestoneIndex,
+    milestones: contract.milestones,
+  };
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, statusInfo, "Contract status fetched successfully")
+    );
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

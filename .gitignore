@@ -72,7 +72,6 @@ tmp/
 temp/
 
 # Editor directories and files
-.vscode/
 .idea/
 *.swp
 *.swo
@@ -92,4 +91,4 @@ Thumbs.db
 
 # Public temp files
 public/temp/
-.env
+config.bat

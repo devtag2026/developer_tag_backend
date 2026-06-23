@@ -47,6 +47,17 @@ const milestoneSchema = new Schema(
         paidAt: {
             type: Date,
         },
+
+        // Delivery lifecycle: upcoming -> in_progress -> completed
+        workStatus: {
+            type: String,
+            enum: ["upcoming", "in_progress", "completed"],
+            default: "upcoming",
+        },
+
+        completedAt: {
+            type: Date,
+        },
     },
     { timestamps: true }
 );
@@ -102,8 +113,8 @@ const contractSchema = new Schema(
             },
         },
 
-        // Index of the milestone currently awaiting/accepting payment.
-        // Enables the "one at a time, sequential" checkout flow.
+        // Index of the milestone currently in progress. Advances when due date
+        // passes (auto) or admin marks complete — not when payment is received.
         currentMilestoneIndex: {
             type: Number,
             default: 0,

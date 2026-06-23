@@ -82,15 +82,22 @@ const formatCurrency = (amount) =>
 const escapeHtml = (str = "") =>
     String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-const buildMilestoneTable = (milestones = [], currency = "usd", highlightIndex = null) => {
+const buildMilestoneTable = (milestones = [], currency = "usd", highlightIndex = null, accessToken = null) => {
+    const backendUrl = process.env.API_URL || "http://localhost:8000";
     const rows = milestones
         .map((m, i) => {
             const isHighlighted = highlightIndex === i;
+            let payButtonHtml = "";
+            if (isHighlighted && accessToken) {
+                const payUrl = `${backendUrl}/api/v1/contracts/token/${accessToken}/milestones/${m._id}/checkout-redirect`;
+                payButtonHtml = ` &nbsp;<a href="${payUrl}" style="display:inline-block;padding:3px 10px;background:#13a87c;color:#fff;text-decoration:none;border-radius:4px;font-size:11px;font-weight:bold;margin-left:6px;">Pay Now</a>`;
+            }
             return `
         <tr>
           <td>
             ${i + 1}. ${escapeHtml(m.title)}
             ${isHighlighted ? '<span style="color:#13a87c;font-size:11px;font-weight:bold;"> &nbsp;DUE NOW</span>' : ""}
+            ${payButtonHtml}
             ${m.description ? `<span class="milestone-desc">${escapeHtml(m.description)}</span>` : ""}
             ${m.dueDate ? `<span class="milestone-desc">Due: ${formatDate(m.dueDate)}</span>` : ""}
           </td>
@@ -214,6 +221,7 @@ const buildContractAcceptedEmail = ({
     currency,
     startDate,
     endDate,
+    accessToken,
 }) => {
     const subject = `Contract Accepted — ${projectName} | DeveloperTag`;
 
@@ -232,11 +240,11 @@ const buildContractAcceptedEmail = ({
           <tr><td>Accepted At</td><td>${new Date().toLocaleString()}</td></tr>
         </table>
 
-        ${buildMilestoneTable(milestones, currency, 0)}
+        ${buildMilestoneTable(milestones, currency, 0, accessToken)}
 
-        <p>Milestone 1 is now due.</p>
+        <p><strong>Next step:</strong> Please complete payment for Milestone 1 to activate the project.</p>
         <div class="note">
-          Questions? Reach us at <a href="mailto:${ADMIN_EMAIL}">${ADMIN_EMAIL}</a>.
+          You will receive a payment link shortly, or you can pay directly from the contract page. Questions? Reach us at <a href="mailto:${ADMIN_EMAIL}">${ADMIN_EMAIL}</a>.
         </div>`
     );
 
@@ -350,9 +358,7 @@ const buildAdminMilestonePaidEmail = ({
     return { subject, html };
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// EXPORTED SEND FUNCTIONS
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── EXPORTED SEND FUNCTIONS ───────────────────────────────────────────────────
 
 export const sendContractEmail = async (data) => {
     const { subject, html } = buildContractEmail(data);

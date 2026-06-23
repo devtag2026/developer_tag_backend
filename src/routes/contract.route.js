@@ -15,6 +15,10 @@ import {
     acceptContract,
     rejectContract,
     getContractStatus,
+    createMilestoneCheckout,
+    redirectToMilestoneCheckout,
+    verifyContractPayment,
+    completeMilestone,
 } from "../controllers/contract.controller.js";
 
 const router = Router();
@@ -24,6 +28,9 @@ const router = Router();
 router.get("/view/:id", getContractById);
 router.get("/token/:accessToken", getContractByToken);
 router.post("/token/:accessToken/respond", respondToContract);
+router.post("/token/:accessToken/milestones/:milestoneId/checkout", createMilestoneCheckout);
+router.get("/token/:accessToken/milestones/:milestoneId/checkout-redirect", redirectToMilestoneCheckout);
+router.post("/token/:accessToken/verify-payment", verifyContractPayment);
 
 // ─── Admin Routes ────────────────────────────────────────────────────────────
 router
@@ -51,6 +58,10 @@ router
 router
     .route("/:id/duplicate")
     .post(verifyJWT, authorizeRoles("admin"), duplicateContract);
+
+router
+    .route("/:id/milestones/:milestoneId/complete")
+    .patch(verifyJWT, authorizeRoles("admin"), completeMilestone);
 
 router
     .route("/:id/accept")

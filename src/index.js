@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+import "./constants.js";
 import { app } from "./app.js";
 import { connectDB } from "./db/index.js";
 

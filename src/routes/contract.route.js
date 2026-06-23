@@ -5,11 +5,20 @@ import {
     createContract,
     getAllContracts,
     getContractById,
+    getContractByToken,
+    respondToContract,
     updateContractStatus,
     sendContract,
     downloadContract,
     duplicateContract,
     deleteContract,
+    acceptContract,
+    rejectContract,
+    getContractStatus,
+    createMilestoneCheckout,
+    redirectToMilestoneCheckout,
+    verifyContractPayment,
+    completeMilestone,
 } from "../controllers/contract.controller.js";
 
 const router = Router();
@@ -17,6 +26,11 @@ const router = Router();
 // ─── Public ──────────────────────────────────────────────────────────────────
 // Client-facing contract view (accessed via emailed link — token-based, no JWT)
 router.get("/view/:id", getContractById);
+router.get("/token/:accessToken", getContractByToken);
+router.post("/token/:accessToken/respond", respondToContract);
+router.post("/token/:accessToken/milestones/:milestoneId/checkout", createMilestoneCheckout);
+router.get("/token/:accessToken/milestones/:milestoneId/checkout-redirect", redirectToMilestoneCheckout);
+router.post("/token/:accessToken/verify-payment", verifyContractPayment);
 
 // ─── Admin Routes ────────────────────────────────────────────────────────────
 router
@@ -44,5 +58,21 @@ router
 router
     .route("/:id/duplicate")
     .post(verifyJWT, authorizeRoles("admin"), duplicateContract);
+
+router
+    .route("/:id/milestones/:milestoneId/complete")
+    .patch(verifyJWT, authorizeRoles("admin"), completeMilestone);
+
+router
+    .route("/:id/accept")
+    .post(verifyJWT, authorizeRoles("admin"), acceptContract);
+
+router
+    .route("/:id/reject")
+    .post(verifyJWT, authorizeRoles("admin"), rejectContract);
+
+router
+    .route("/:id/status")
+    .get(verifyJWT, authorizeRoles("admin"), getContractStatus);
 
 export default router;

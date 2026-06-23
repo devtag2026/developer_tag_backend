@@ -70,6 +70,21 @@ const formSubmissionSchema = new Schema(
                 message: 'Invalid form type'
             }
         },
+        projectGoal: {
+            type: String,
+            trim: true,
+            maxlength: [100, 'Project goal cannot exceed 100 characters']
+        },
+        expertiseNeeded: {
+            type: String,
+            trim: true,
+            maxlength: [100, 'Expertise needed cannot exceed 100 characters']
+        },
+        budget: {
+            type: String,
+            trim: true,
+            maxlength: [50, 'Budget cannot exceed 50 characters']
+        },
     },
     {
         timestamps: true
@@ -81,6 +96,9 @@ formSubmissionSchema.index({ formType: 1, createdAt: -1 });
 formSubmissionSchema.index({ serviceType: 1 });
 formSubmissionSchema.index({ engagementType: 1 });
 formSubmissionSchema.index({ email: 1 });
+formSubmissionSchema.index({ projectGoal: 1 });
+formSubmissionSchema.index({ expertiseNeeded: 1 });
+formSubmissionSchema.index({ budget: 1 });
 
 const FormSubmission = mongoose.model('FormSubmission', formSubmissionSchema);
 

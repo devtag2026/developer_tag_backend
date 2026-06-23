@@ -1,6 +1,6 @@
 import mongoose, { Schema } from "mongoose";
 import crypto from "crypto";
-import { EMAIL } from "../constant/validations/pattern.js";
+import { EMAIL } from "../constants.js";
 
 const milestoneSchema = new Schema(
     {

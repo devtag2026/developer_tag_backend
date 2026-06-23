@@ -1,5 +1,5 @@
 import mongoose, { Schema } from "mongoose";
-import { PaymentStatus } from "../constant/enums.js";
+import { PaymentStatus } from "../constants.js";
 
 const paymentSchema = new Schema(
     {

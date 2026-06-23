@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer";
 import { ApiError } from "./apiError.js";
-import { PAYMENT_TERMS_LABEL } from "../constant/enums.js";
+import { PAYMENT_TERMS_LABEL } from "../constants.js";
 
 // ─── Lazy SMTP transporter ────────────────────────────────────────────────────
 let transporter = null;
